@@ -44,20 +44,3 @@ describe("buildCanUseTool Agent/Task background policy", () => {
     }
   });
 });
-
-describe("buildCanUseTool ExitPlanMode deny-and-capture", () => {
-  test("denies ExitPlanMode so plan mode cannot execute", async () => {
-    vi.resetModules();
-    const { buildCanUseTool } = await import("../runtime/pendingQuestion.js");
-    const canUseTool = buildCanUseTool();
-    const result = await canUseTool(
-      "ExitPlanMode",
-      { plan: "# Goal\nDo not implement." },
-      { toolUseID: "toolu_plan", signal: new AbortController().signal },
-    );
-    expect(result.behavior).toBe("deny");
-    if (result.behavior === "deny") {
-      expect(result.message).toMatch(/captured your proposed plan/i);
-    }
-  });
-});

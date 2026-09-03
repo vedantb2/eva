@@ -1,7 +1,7 @@
 "use node";
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
-import { mkdirSync as mkdirSync10, unlinkSync as unlinkSync4, writeFileSync as writeFileSync15 } from "fs";
+import { mkdirSync as mkdirSync10, unlinkSync as unlinkSync4, writeFileSync as writeFileSync14 } from "fs";
 
 // callback-src/config.ts
 import { existsSync } from "fs";
@@ -332,7 +332,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync, writeFileSync as writeFileSync10, readFileSync as readFileSync6, readdirSync as readdirSync3 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync9, readFileSync as readFileSync6, readdirSync as readdirSync3 } from "fs";
 import { homedir } from "os";
 
 // callback-src/providers/daemonPaths.ts
@@ -4681,89 +4681,6 @@ import { execSync } from "child_process";
 import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
 import { dirname } from "path";
 
-// callback-src/runtime/exitPlanMode.ts
-import { writeFileSync as writeFileSync8 } from "fs";
-import { join } from "path";
-var EXIT_PLAN_DENY_MESSAGE = "The client captured your proposed plan. Stop here and wait for the user's feedback or implementation request in a later turn.";
-var capturedKeys = /* @__PURE__ */ new Set();
-function extractExitPlanModePlan(value) {
-  if (!value || typeof value !== "object") {
-    return void 0;
-  }
-  const record = value;
-  return typeof record.plan === "string" && record.plan.trim().length > 0 ? record.plan.trim() : void 0;
-}
-function exitPlanCaptureKey(input) {
-  return input.toolUseId && input.toolUseId.length > 0 ? \`tool:\${input.toolUseId}\` : \`plan:\${input.planMarkdown}\`;
-}
-function persistPlanMarkdown(planMarkdown) {
-  try {
-    writeFileSync8(join(WORK_DIR, "plan.md"), \`\${planMarkdown.trimEnd()}
-\`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    log("exitPlanMode: could not write plan.md \\u2014 " + message);
-  }
-}
-async function captureProposedPlan(input) {
-  const planMarkdown = input.planMarkdown.trim();
-  if (!planMarkdown || !ENTITY_ID || ENTITY_ID_FIELD !== "sessionId") {
-    return;
-  }
-  const key = exitPlanCaptureKey({
-    toolUseId: input.toolUseId,
-    planMarkdown
-  });
-  if (capturedKeys.has(key)) return;
-  capturedKeys.add(key);
-  persistPlanMarkdown(planMarkdown);
-  try {
-    await callConvexWithRetry("mutation", "proposedPlans:capture", {
-      entityId: ENTITY_ID,
-      planMarkdown,
-      ...input.toolUseId ? { toolUseId: input.toolUseId } : {}
-    });
-    log("exitPlanMode: captured proposed plan (" + key + ")");
-  } catch (error) {
-    capturedKeys.delete(key);
-    const message = error instanceof Error ? error.message : String(error);
-    log("exitPlanMode: capture failed \\u2014 " + message);
-  }
-}
-function exitPlanModeDenyResult() {
-  return { behavior: "deny", message: EXIT_PLAN_DENY_MESSAGE };
-}
-function extractExitPlanModeFromAssistant(message) {
-  if (!message || typeof message !== "object") return [];
-  const record = message;
-  if (record.type !== "assistant") return [];
-  const content = record.message?.content;
-  if (!Array.isArray(content)) return [];
-  const found = [];
-  for (const block of content) {
-    if (!block || typeof block !== "object") continue;
-    const toolUse = block;
-    if (toolUse.type !== "tool_use" || toolUse.name !== "ExitPlanMode") {
-      continue;
-    }
-    const planMarkdown = extractExitPlanModePlan(toolUse.input);
-    if (!planMarkdown) continue;
-    found.push({
-      planMarkdown,
-      toolUseId: typeof toolUse.id === "string" ? toolUse.id : void 0
-    });
-  }
-  return found;
-}
-async function maybeCaptureExitPlanModeTool(toolName, input, toolUseId) {
-  if (toolName !== "ExitPlanMode") return false;
-  const planMarkdown = extractExitPlanModePlan(input);
-  if (planMarkdown) {
-    await captureProposedPlan({ planMarkdown, toolUseId });
-  }
-  return true;
-}
-
 // callback-src/runtime/pendingQuestion.ts
 var POLL_INTERVAL_MS = 300;
 function sleep(ms) {
@@ -4815,13 +4732,6 @@ function buildCanUseTool() {
         behavior: "allow",
         updatedInput: { ...input, run_in_background: false }
       };
-    }
-    if (await maybeCaptureExitPlanModeTool(
-      toolName,
-      input,
-      typeof options.toolUseID === "string" ? options.toolUseID : void 0
-    )) {
-      return exitPlanModeDenyResult();
     }
     if (toolName !== "AskUserQuestion") {
       return { behavior: "allow", updatedInput: input };
@@ -5180,7 +5090,7 @@ async function runClaudeSdkAttempt(sessionMode) {
 }
 
 // callback-src/runtime/turnAttachments.ts
-import { writeFileSync as writeFileSync9 } from "fs";
+import { writeFileSync as writeFileSync8 } from "fs";
 function attachmentExtensionForMimeType(mimeType) {
   const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
   switch (type) {
@@ -5219,7 +5129,7 @@ async function materializeTurnAttachments(turn) {
       const path3 = \`/tmp/eva-attachment-\${index}\${attachmentExtensionForMimeType(
         response.headers.get("content-type") ?? ""
       )}\`;
-      writeFileSync9(path3, new Uint8Array(await response.arrayBuffer()));
+      writeFileSync8(path3, new Uint8Array(await response.arrayBuffer()));
       paths2.push(path3);
     } catch (error) {
       log(
@@ -5566,7 +5476,7 @@ function readClaimedTurn(result) {
   const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
     (url) => typeof url === "string"
   ) : [];
-  const interactionMode = payload.interactionMode === "plan" ? "plan" : "default";
+  const interactionMode = "default";
   const turnLease = readTurnLeaseIdentity(result);
   if (lifecycle === "durable" && turnLease === null) {
     throw new Error("Durable claimed turn did not include a lease identity");
@@ -6322,7 +6232,7 @@ async function startRealAgentTurn(turn, agentRunner) {
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
   beginWatchedTurn();
-  await agentRunner.setPermissionMode(turn.interactionMode);
+  await agentRunner.setPermissionMode("default");
   agentRunner.push(turn.prompt);
   callbackState.activeAttemptStartedAt = agentTurnStartedAt;
   agentTurnOutput = "";
@@ -6552,9 +6462,6 @@ function handleDaemonMessage(message, output, turnStartedAt, sawFirstMessageThis
       "daemon[timing]: first assistant msg +" + (Date.now() - turnStartedAt) + "ms after turn start"
     );
   }
-  for (const found of extractExitPlanModeFromAssistant(message)) {
-    void captureProposedPlan(found);
-  }
   const line = JSON.stringify(message) + "\\n";
   appendToRawLogFile(line);
   const nextOutput = trimBufferHead(output + line);
@@ -6675,9 +6582,9 @@ async function runSdkDaemon() {
     );
     process.exit(0);
   }
-  writeFileSync10(DAEMON_PID_FILE, String(process.pid));
-  writeFileSync10(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
-  writeFileSync10(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
+  writeFileSync9(DAEMON_PID_FILE, String(process.pid));
+  writeFileSync9(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
+  writeFileSync9(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
   let deposedLogged = false;
   setInterval(() => {
     const owner = readDaemonPidFile();
@@ -6769,7 +6676,7 @@ async function runSdkDaemon() {
 }
 
 // callback-src/providers/codexAppServerDaemon.ts
-import { readFileSync as readFileSync7, unlinkSync as unlinkSync2, writeFileSync as writeFileSync11 } from "fs";
+import { readFileSync as readFileSync7, unlinkSync as unlinkSync2, writeFileSync as writeFileSync10 } from "fs";
 
 // callback-src/providers/codexAppServerClient.ts
 import { spawn } from "child_process";
@@ -7201,9 +7108,9 @@ async function runCodexAppServerDaemon() {
     log("codex daemon: live rival already owns entity; exiting");
     process.exit(0);
   }
-  writeFileSync11(paths.pid, String(process.pid));
-  writeFileSync11(paths.entity, ENTITY_ID ?? "");
-  writeFileSync11(paths.opts, DAEMON_OPTS_SIG);
+  writeFileSync10(paths.pid, String(process.pid));
+  writeFileSync10(paths.entity, ENTITY_ID ?? "");
+  writeFileSync10(paths.opts, DAEMON_OPTS_SIG);
   const fence = setInterval(() => {
     if (readOwnerPid() !== process.pid && !supervisor2.hasWork) {
       exitWithError = true;
@@ -7307,7 +7214,7 @@ async function runCodexAppServerDaemon() {
 
 // callback-src/providers/cursorSdkDaemon.ts
 import { spawn as spawn2 } from "child_process";
-import { readFileSync as readFileSync9, unlinkSync as unlinkSync3, writeFileSync as writeFileSync12 } from "fs";
+import { readFileSync as readFileSync9, unlinkSync as unlinkSync3, writeFileSync as writeFileSync11 } from "fs";
 
 // callback-src/providers/cursorSdk.ts
 import { mkdirSync as mkdirSync7, readFileSync as readFileSync8 } from "fs";
@@ -8113,7 +8020,7 @@ function spawnCursorTurnWorker(turn, promptFile) {
   );
   if (child.pid !== void 0) {
     try {
-      writeFileSync12(
+      writeFileSync11(
         \`/proc/\${child.pid}/oom_score_adj\`,
         CURSOR_TURN_WORKER_OOM_SCORE
       );
@@ -8479,7 +8386,7 @@ async function reportCursorTurnWorkerFailure(outcome) {
 }
 async function runClaimedTurn(turn) {
   const promptFile = CURSOR_TURN_WORKER_FILE_PREFIX + String(process.pid) + "-" + String(Date.now()) + ".txt";
-  writeFileSync12(promptFile, turn.prompt);
+  writeFileSync11(promptFile, turn.prompt);
   startClaimedTurn(turn);
   turnActive2 = true;
   turnStartedAtMs2 = Date.now();
@@ -8532,9 +8439,9 @@ async function runCursorDaemon() {
     );
     process.exit(0);
   }
-  writeFileSync12(daemonPaths2.pid, String(process.pid));
-  writeFileSync12(daemonPaths2.entity, ENTITY_ID ?? "");
-  writeFileSync12(daemonPaths2.opts, DAEMON_OPTS_SIG);
+  writeFileSync11(daemonPaths2.pid, String(process.pid));
+  writeFileSync11(daemonPaths2.entity, ENTITY_ID ?? "");
+  writeFileSync11(daemonPaths2.opts, DAEMON_OPTS_SIG);
   let deposedLogged = false;
   const fence = setInterval(() => {
     const owner = readDaemonPidFile2();
@@ -8595,7 +8502,7 @@ import {
   readdirSync as readdirSync4,
   readFileSync as readFileSync10,
   rmSync,
-  writeFileSync as writeFileSync13
+  writeFileSync as writeFileSync12
 } from "fs";
 var SYSTEM_SKILLS_STATE_FILE = "/tmp/eva-system-skills.json";
 var SYSTEM_SKILL_MARKER = "<!-- eva:system-skill -->";
@@ -8668,7 +8575,7 @@ function writeStub(skill) {
     return false;
   }
   mkdirSync8(directory, { recursive: true });
-  writeFileSync13(\`\${directory}/SKILL.md\`, skill.stub);
+  writeFileSync12(\`\${directory}/SKILL.md\`, skill.stub);
   return true;
 }
 function pruneStaleStubs(keep) {
@@ -8695,7 +8602,7 @@ function updateGitExclude(names) {
   const next = renderExcludeContent(existing, names);
   if (next === existing) return;
   mkdirSync8(infoDir, { recursive: true });
-  writeFileSync13(excludeFile, next);
+  writeFileSync12(excludeFile, next);
 }
 function materializeSystemSkills() {
   try {
@@ -9415,7 +9322,7 @@ import {
   readFileSync as readFileSync12,
   rmSync as rmSync2,
   statSync as statSync3,
-  writeFileSync as writeFileSync14
+  writeFileSync as writeFileSync13
 } from "fs";
 var SERVER_STATE_FILE = OPENCODE_RUNTIME_HOME_DIR + "/server.json";
 var SERVER_LOCK_DIR = OPENCODE_RUNTIME_HOME_DIR + "/server.lock";
@@ -9497,11 +9404,11 @@ function spawnServer() {
     const pid = child.pid ?? 0;
     if (pid) {
       try {
-        writeFileSync14("/proc/" + String(pid) + "/oom_score_adj", "300");
+        writeFileSync13("/proc/" + String(pid) + "/oom_score_adj", "300");
       } catch {
       }
     }
-    writeFileSync14(
+    writeFileSync13(
       SERVER_STATE_FILE,
       JSON.stringify({ pid, port: OPENCODE_SERVER_PORT })
     );
@@ -10063,7 +9970,7 @@ try {
 } catch {
 }
 try {
-  writeFileSync15("/proc/self/oom_score_adj", "-600");
+  writeFileSync14("/proc/self/oom_score_adj", "-600");
 } catch {
 }
 callbackState.lastStepType = "thinking";

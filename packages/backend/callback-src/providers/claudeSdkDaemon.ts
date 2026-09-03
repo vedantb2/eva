@@ -95,10 +95,6 @@ import {
   type ClaimedTurn,
 } from "./claimedTurnLifecycle.js";
 import { isZeroWorkTaskNotificationResult } from "./claudeResult.js";
-import {
-  captureProposedPlan,
-  extractExitPlanModeFromAssistant,
-} from "../runtime/exitPlanMode.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -1136,7 +1132,7 @@ async function startRealAgentTurn(
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
   beginWatchedTurn();
-  await agentRunner.setPermissionMode(turn.interactionMode);
+  await agentRunner.setPermissionMode("default");
   agentRunner.push(turn.prompt);
   S.activeAttemptStartedAt = agentTurnStartedAt;
   agentTurnOutput = "";
@@ -1447,9 +1443,6 @@ function handleDaemonMessage(
         (Date.now() - turnStartedAt) +
         "ms after turn start",
     );
-  }
-  for (const found of extractExitPlanModeFromAssistant(message)) {
-    void captureProposedPlan(found);
   }
   const line = JSON.stringify(message) + "\n";
   appendToRawLogFile(line);

@@ -382,9 +382,6 @@ const sessionQueueConfig: ChatQueueConfig<
     });
   },
   startWorkflow: async (ctx, id, session, next, prepared) => {
-    if (next.interactionMode !== undefined) {
-      await ctx.db.patch(id, { lastInteractionMode: next.interactionMode });
-    }
     const placeholderMessageId = await ctx.db.insert("messages", {
       parentId: id,
       role: "assistant",

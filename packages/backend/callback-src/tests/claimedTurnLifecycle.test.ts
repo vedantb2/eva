@@ -81,13 +81,13 @@ describe("the shared claimed-turn lifecycle", () => {
     ).toBe(false);
   });
 
-  test("carries interactionMode from the claim, defaulting to build", () => {
+  test("claimed turns always run as build", () => {
     expect(
       readClaimedTurn({
         prompt: "Plan the checkout",
         interactionMode: "plan",
       }),
-    ).toMatchObject({ interactionMode: "plan" });
+    ).toMatchObject({ interactionMode: "default" });
     expect(readClaimedTurn({ prompt: "Ship it" })).toMatchObject({
       interactionMode: "default",
     });

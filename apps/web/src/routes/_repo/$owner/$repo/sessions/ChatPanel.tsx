@@ -9,7 +9,6 @@ import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
@@ -43,18 +42,7 @@ import { AveResetChatDialog } from "@/lib/components/ave/AveResetChatDialog";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 import { APPROVE_PLAN_PROMPT } from "./_utils/composerPrompts";
-import { motionBase, toast } from "@eva/ui";
-import { ProposedPlanCard } from "./_components/ProposedPlanCard";
-import {
-  buildPlanImplementationPrompt,
-  buildPlanImplementationThreadTitle,
-} from "./_components/planExport";
-import {
-  findLatestProposedPlan,
-  hasActionableProposedPlan,
-  proposedPlanForMessage,
-  type ProposedPlanRow,
-} from "./_components/proposedPlanLogic";
+import { motionBase } from "@eva/ui";
 
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -135,7 +123,6 @@ export function ChatPanel({
   backgroundAgents,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
-  const navigate = useNavigate();
   const simpleView = useSimpleView();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -205,16 +192,6 @@ export function ChatPanel({
     accounts,
     messages,
   });
-  const proposedPlans = useQuery(api.proposedPlans.listBySession, {
-    sessionId,
-  });
-  const createSession = useMutation(api.sessions.create);
-  const markPlanImplemented = useMutation(api.proposedPlans.markImplemented);
-  const updatePlanContent = useMutation(api.sessions.updatePlanContent);
-  const latestProposedPlan = findLatestProposedPlan(proposedPlans ?? []);
-  const actionablePlan = hasActionableProposedPlan(latestProposedPlan)
-    ? latestProposedPlan
-    : null;
   const chatSurface: SandboxChatSurface = {
     entity: { kind: "session", sessionId },
     repoId: repo._id,
@@ -313,61 +290,14 @@ export function ChatPanel({
 
   const hasPlanContent =
     typeof planContent === "string" && planContent.trim().length > 0;
-  const hasCapturedPlans = (proposedPlans?.length ?? 0) > 0;
   // Compact card above the composer only while the sandbox pane is collapsed —
   // otherwise the PRD tab owns the plan and the slim strip links to it.
-  // Captured ExitPlanMode plans render inline in the transcript instead.
   const showCompactPlanCard =
-    hasPlanContent && !hasCapturedPlans && sandboxCollapsed !== false;
-  // When the card is hidden but a plan exists, show a slim Plan Ready strip.
-  const showPlanReadyBanner =
-    hasPlanContent && !hasCapturedPlans && !showCompactPlanCard;
-
-  const implementPlan = (plan: ProposedPlanRow) => {
-    void handleSend(
-      buildPlanImplementationPrompt(plan.planMarkdown),
-      undefined,
-      { sourceProposedPlanId: plan._id },
-    );
-  };
+    hasPlanContent && sandboxCollapsed !== false;
+  const showPlanReadyBanner = hasPlanContent && !showCompactPlanCard;
 
   const handleApprovePlan = () => {
-    if (actionablePlan) {
-      implementPlan(actionablePlan);
-      return;
-    }
     void seedChatDraft(APPROVE_PLAN_PROMPT);
-  };
-
-  const handleImplementInNewSession = async (plan: ProposedPlanRow) => {
-    try {
-      const { sessionId: nextSessionId, numId } = await createSession({
-        repoId: repo._id,
-        title: buildPlanImplementationThreadTitle(plan.planMarkdown),
-        message: buildPlanImplementationPrompt(plan.planMarkdown),
-        model,
-        ...executionTraits,
-        reasoningLevel: displayTraits.effortLevel,
-        thinkingEnabled: displayTraits.thinkingEnabled,
-        use1mContext: displayTraits.use1mContext,
-        fastMode: displayTraits.fastMode,
-        providerAccountId: resolveAccountId(providerAccountId) ?? null,
-        interactionMode: "default",
-      });
-      await updatePlanContent({
-        id: nextSessionId,
-        planContent: plan.planMarkdown,
-      });
-      await markPlanImplemented({
-        planId: plan._id,
-        implementationSessionId: nextSessionId,
-      });
-      await navigate({ to: `${basePath}/sessions/${numId}` });
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Couldn't start new session",
-      );
-    }
   };
 
   const handleViewPlan = () => {
@@ -486,27 +416,6 @@ export function ChatPanel({
         onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
-        afterMessage={(messageId) => {
-          const plan = proposedPlanForMessage(proposedPlans ?? [], messageId);
-          if (!plan) return null;
-          return (
-            <ProposedPlanCard
-              planMarkdown={plan.planMarkdown}
-              implemented={plan.implementedAt !== undefined}
-              onImplement={
-                isReadOnly || plan.implementedAt !== undefined
-                  ? undefined
-                  : () => implementPlan(plan)
-              }
-              onImplementInNewSession={
-                isReadOnly || plan.implementedAt !== undefined
-                  ? undefined
-                  : () => void handleImplementInNewSession(plan)
-              }
-              isArchived={isReadOnly}
-            />
-          );
-        }}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

@@ -1,36 +1,33 @@
 import { expect, test } from "vitest";
 import { buildEditPrompt } from "../convex/_sessions/prompts";
 
-test("plan mode prepends the ExitPlanMode contract and does not ask to implement", () => {
+test("sessions no longer enter plan mode or inject plan.md as an approved plan", () => {
   const prompt = buildEditPrompt(
     { owner: "vvedantb", name: "eva", baseBranch: "main" },
     "eva/session-1",
-    "# Existing\nKeep this",
-    "plan the checkout",
     "",
-    "",
-    undefined,
-    undefined,
-    [],
-    "plan",
-  );
-  expect(prompt).toContain("You are in plan mode");
-  expect(prompt).toContain("ExitPlanMode");
-  expect(prompt).toContain("Current plan (revise; do not implement)");
-  expect(prompt).not.toContain("Follow this plan when implementing");
-});
-
-test("build mode still injects the approved plan as implementation context", () => {
-  const prompt = buildEditPrompt(
-    { owner: "vvedantb", name: "eva", baseBranch: "main" },
-    "eva/session-1",
-    "# Existing\nKeep this",
     "ship it",
     "",
     "",
     undefined,
   );
-  expect(prompt).toContain("Approved plan:");
-  expect(prompt).toContain("Follow this plan when implementing");
   expect(prompt).not.toContain("You are in plan mode");
+  expect(prompt).not.toContain("ExitPlanMode");
+  expect(prompt).not.toContain("Approved plan:");
+  expect(prompt).not.toContain("Follow this plan when implementing");
+});
+
+test("non-empty planContent is still attached as context for task/project chat", () => {
+  const prompt = buildEditPrompt(
+    { owner: "vvedantb", name: "eva", baseBranch: "main" },
+    "eva/session-1",
+    "# Spec\nDo the work",
+    "ship it",
+    "",
+    "",
+    undefined,
+  );
+  expect(prompt).toContain("Context:");
+  expect(prompt).toContain("# Spec\nDo the work");
+  expect(prompt).not.toContain("Approved plan:");
 });

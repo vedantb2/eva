@@ -77,7 +77,6 @@ export interface SessionSendOptions {
    * harness as bare text.
    */
   skipReviewComments?: boolean;
-  sourceProposedPlanId?: Id<"proposedPlans">;
 }
 
 interface UseSessionSendParams {
@@ -144,7 +143,6 @@ export function useSessionSend({
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
-        interactionMode: "default",
       });
       if (consumesReviewComments) review?.clear();
       return;
@@ -168,10 +166,6 @@ export function useSessionSend({
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: accountId,
         attachmentStorageIds,
-        interactionMode: "default",
-        ...(options?.sourceProposedPlanId !== undefined
-          ? { sourceProposedPlanId: options.sourceProposedPlanId }
-          : {}),
       }),
     ])
       .catch(async (error) => {

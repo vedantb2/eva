@@ -7,7 +7,7 @@
  * discovery) and re-exported through the top-level `repoGroups.ts`, mirroring
  * `_repoSnapshots/config.ts` → `repoSnapshots.ts`.
  */
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
@@ -85,6 +85,27 @@ const groupBuildPrimaryValidator = v.object({
   seededSnapshotName: v.union(v.string(), v.null()),
 });
 
+const groupForBuildReturnValidator = v.union(
+  v.object({
+    group: v.object({
+      primaryRepoId: v.id("githubRepos"),
+      installDependencies: v.optional(v.boolean()),
+      seededSnapshotName: v.optional(v.string()),
+      seededFingerprint: v.optional(v.string()),
+    }),
+    primary: groupBuildPrimaryValidator,
+    linked: v.array(groupBuildMemberValidator),
+  }),
+  v.null(),
+);
+
+/**
+ * Return shape of `getGroupForBuild`, exported so `snapshotBuild.ts` can
+ * annotate the `ctx.runQuery` result explicitly instead of relying on
+ * `_generated/api.d.ts` being freshly regenerated.
+ */
+export type GroupForBuildResult = Infer<typeof groupForBuildReturnValidator>;
+
 /**
  * Everything `buildGroupSnapshot` needs: the group's install flag + current
  * snapshot/fingerprint, the primary repo (for its seeded snapshot + git
@@ -93,19 +114,7 @@ const groupBuildPrimaryValidator = v.object({
  */
 export const getGroupForBuild = internalQuery({
   args: { groupId: v.id("repoGroups") },
-  returns: v.union(
-    v.object({
-      group: v.object({
-        primaryRepoId: v.id("githubRepos"),
-        installDependencies: v.optional(v.boolean()),
-        seededSnapshotName: v.optional(v.string()),
-        seededFingerprint: v.optional(v.string()),
-      }),
-      primary: groupBuildPrimaryValidator,
-      linked: v.array(groupBuildMemberValidator),
-    }),
-    v.null(),
-  ),
+  returns: groupForBuildReturnValidator,
   handler: async (ctx, args) => {
     const group = await ctx.db.get(args.groupId);
     if (!group) return null;

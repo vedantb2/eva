@@ -293,6 +293,52 @@ export const sessionSandboxStartupWorkflow = workflow.define({
       repoId: args.repoId,
       hasLinkedRepos: args.hasLinkedRepos,
     });
+
+    if (args.hasLinkedRepos !== true) return;
+
+    // startSessionSandbox armed `sandboxSetupPending` instead of clearing it
+    // (see `prepareSessionSandboxInternal`) specifically so this step could
+    // clone/install every linked repo before the first turn runs. Whatever
+    // happens below, the gate must still come off — a linked repo that never
+    // finishes must not wedge the session forever.
+    const session = await step.runQuery(internal.sessions.getInternal, {
+      id: args.sessionId,
+    });
+    if (!session?.sandboxId) {
+      // startSessionSandbox failed before a sandbox existed (or the user
+      // stopped mid-start) — nothing to provision, and no gate was armed for
+      // a sandbox that was never created.
+      return;
+    }
+    const sandboxId = session.sandboxId;
+
+    const linkedRepos = await step.runQuery(
+      internal.sessions.listLinkedReposInternal,
+      { sessionId: args.sessionId },
+    );
+
+    for (const linkedRepo of linkedRepos) {
+      try {
+        await step.runAction(internal.sandbox.prepareLinkedRepo, {
+          sessionId: args.sessionId,
+          sessionRepoId: linkedRepo._id,
+          sandboxId,
+          repoId: args.repoId,
+        });
+      } catch (error) {
+        // Keep provisioning the rest — one repo failing to clone must not
+        // strand every other linked repo uncloned too.
+        await step.runMutation(internal.sessionWorkflow.postSystemAlert, {
+          sessionId: args.sessionId,
+          content: `Failed to prepare linked repo ${linkedRepo.name}`,
+          errorDetail: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    await step.runMutation(internal.sessions.clearSandboxSetupPending, {
+      sessionId: args.sessionId,
+    });
   },
 });
 

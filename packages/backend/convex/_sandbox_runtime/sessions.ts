@@ -1003,6 +1003,39 @@ async function prepareSessionSandboxInternal(
                 ),
             );
           }
+          // Resume is the only path that can relaunch linked repos' dev
+          // servers: they were cloned by `prepareLinkedRepo` (run once, from
+          // `sessionSandboxStartupWorkflow`, on the session's first-ever
+          // create) and never re-run on a plain resume. Rows a create hasn't
+          // reached yet (`clonedAt` unset) are silently skipped — nothing to
+          // restart until they exist on disk.
+          if (!isOrchestrator) {
+            const linkedRows = await ctx.runQuery(
+              internal.sessions.listLinkedReposInternal,
+              { sessionId: args.sessionId },
+            );
+            for (const linkedRow of linkedRows) {
+              if (
+                linkedRow.clonedAt === undefined ||
+                !linkedRow.devCommand ||
+                linkedRow.devPort === undefined
+              ) {
+                continue;
+              }
+              await runLoggedSessionStep(
+                "reuseSessionSandbox.launchLinkedRepoDevServer",
+                `${sandboxDetails}, linkedRepo=${linkedRow.name}`,
+                () =>
+                  launchLinkedRepoDevServerInVercelConsole(
+                    handle,
+                    `session-${args.sessionId}-${linkedRow.name}`,
+                    linkedRow.path,
+                    linkedRow.devCommand ?? "",
+                    linkedRow.devPort ?? 0,
+                  ),
+              );
+            }
+          }
           reusedResult = {
             sandbox: handle,
             isNew: false,

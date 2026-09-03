@@ -30,7 +30,10 @@ import {
   linkedRepoDir,
   primaryLinkPath,
 } from "../_sandbox_runtime/workspaceLayout";
-import { computeRepoGroupFingerprint } from "./snapshot";
+import {
+  computeRepoGroupFingerprint,
+  type GroupForBuildResult,
+} from "./snapshot";
 
 // Large seeded snapshots take well over the SDK's 30s default to boot the
 // ephemeral builder sandbox — mirrors createSeedPrepSandbox's readyTimeoutSeconds.
@@ -147,9 +150,10 @@ export const buildGroupSnapshot = internalAction({
   args: { groupId: v.id("repoGroups") },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const build = await ctx.runQuery(internal.repoGroups.getGroupForBuild, {
-      groupId: args.groupId,
-    });
+    const build: GroupForBuildResult = await ctx.runQuery(
+      internal.repoGroups.getGroupForBuild,
+      { groupId: args.groupId },
+    );
     if (!build) {
       logBuild(`group ${args.groupId} or its primary repo no longer exists; skipping`);
       return null;

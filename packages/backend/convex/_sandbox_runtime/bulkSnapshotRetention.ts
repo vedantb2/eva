@@ -725,6 +725,8 @@ export const inspectSnapshotsByIds = internalAction({
           if (tryDelete && String(snap.status) === "created") {
             if (protector !== null) {
               row.error = `protected by live sandbox ${protector}`;
+            } else if (groupSnapshotIds.has(snapshotId)) {
+              row.error = "protected: repo group seeded snapshot";
             } else {
               try {
                 await snap.delete();

@@ -2,6 +2,7 @@ import type { ActivityStep } from "@eva/ui";
 import { IconChevronDown, IconFileText } from "@tabler/icons-react";
 import { cn, Surface } from "@eva/ui";
 import {
+  groupChangedFilesByRepo,
   selectChangedFilePreview,
   shouldAutoExpandChangedFiles,
   shouldPreviewChangedFiles,
@@ -11,6 +12,12 @@ export interface ChangedFile {
   path: string;
   name: string;
   dir: string;
+  /**
+   * The linked repo this file belongs to (multi-repo sessions), or `null` for
+   * the primary repo. Derived from the `/tmp/workspace/<name>/…` sandbox
+   * prefix — see `workspaceRepoName`.
+   */
+  repoName: string | null;
 }
 
 const CHANGED_FILE_TYPES = new Set<ActivityStep["type"]>([
@@ -22,6 +29,9 @@ const CHANGED_FILE_TYPES = new Set<ActivityStep["type"]>([
 const SANDBOX_REPO_PREFIXES = ["/tmp/repo/", "/workspace/repo/"] as const;
 
 const TMP_REPO_PREFIX = "/tmp/repo/";
+
+/** Multi-repo sessions clone linked repos here; see `workspaceLayout.ts`. */
+const WORKSPACE_PREFIX = "/tmp/workspace/";
 
 function isChangedFileStep(
   step: ActivityStep,
@@ -43,7 +53,24 @@ function dirname(path: string): string {
   return slashIndex >= 0 ? path.slice(0, slashIndex) : "";
 }
 
-function displayDir(dir: string): string {
+/**
+ * Repo name a path belongs to when it sits under the multi-repo workspace
+ * root (`/tmp/workspace/<name>/…`), or `null` for the primary repo
+ * (`/tmp/repo/…`, or legacy `/workspace/repo/…`).
+ */
+export function workspaceRepoName(path: string): string | null {
+  if (!path.startsWith(WORKSPACE_PREFIX)) return null;
+  const rest = path.slice(WORKSPACE_PREFIX.length);
+  const slash = rest.indexOf("/");
+  if (slash <= 0) return null;
+  return rest.slice(0, slash);
+}
+
+function displayDir(dir: string, repoName: string | null): string {
+  if (repoName) {
+    const prefix = `${WORKSPACE_PREFIX}${repoName}/`;
+    return dir.startsWith(prefix) ? dir.slice(prefix.length) : dir;
+  }
   if (dir.startsWith(TMP_REPO_PREFIX)) {
     return dir.slice(TMP_REPO_PREFIX.length);
   }
@@ -70,10 +97,12 @@ export function collectChangedFiles(steps: ActivityStep[]): ChangedFile[] {
     if (seen.has(step.path)) continue;
     seen.add(step.path);
     const dir = dirname(step.path);
+    const repoName = workspaceRepoName(step.path);
     files.push({
       path: step.path,
       name: basename(step.path),
-      dir: displayDir(dir),
+      dir: displayDir(dir, repoName),
+      repoName,
     });
   }
 
@@ -106,6 +135,7 @@ export function ChangedFilesCard({
     : shouldPreviewChangedFiles(files, isLatestAssistantTurn)
       ? selectChangedFilePreview(files)
       : [];
+  const changedFileGroups = groupChangedFilesByRepo(visibleFiles);
 
   const handleViewDiff = () => {
     const firstPath = files[0]?.path;
@@ -143,23 +173,34 @@ export function ChangedFilesCard({
       </div>
       {visibleFiles.length > 0 ? (
         <ul className="grid gap-0.5 px-1.5 pb-1.5">
-          {visibleFiles.map((file) => (
-            <li key={file.path}>
-              {onOpenFile ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenFile(file.path)}
-                  className="flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-muted"
-                >
-                  <FileRow file={file} />
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 px-1.5 py-1.5">
-                  <FileRow file={file} />
-                </div>
-              )}
-            </li>
-          ))}
+          {changedFileGroups.length <= 1
+            ? // Single group (always true for an ordinary, single-repo
+              // session): today's exact flat markup, no heading.
+              visibleFiles.map((file) => (
+                <FileListItem
+                  key={file.path}
+                  file={file}
+                  onOpenFile={onOpenFile}
+                />
+              ))
+            : changedFileGroups.map((group) => (
+                <li key={group.repoName ?? "-"}>
+                  {group.repoName ? (
+                    <div className="px-1.5 pb-0.5 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70 first:pt-0">
+                      {group.repoName}/
+                    </div>
+                  ) : null}
+                  <ul className="grid gap-0.5">
+                    {group.files.map((file) => (
+                      <FileListItem
+                        key={file.path}
+                        file={file}
+                        onOpenFile={onOpenFile}
+                      />
+                    ))}
+                  </ul>
+                </li>
+              ))}
           {!isExpanded && visibleFiles.length < files.length ? (
             <li>
               <button
@@ -174,6 +215,32 @@ export function ChangedFilesCard({
         </ul>
       ) : null}
     </Surface>
+  );
+}
+
+function FileListItem({
+  file,
+  onOpenFile,
+}: {
+  file: ChangedFile;
+  onOpenFile?: (path: string) => void;
+}) {
+  return (
+    <li>
+      {onOpenFile ? (
+        <button
+          type="button"
+          onClick={() => onOpenFile(file.path)}
+          className="flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-muted"
+        >
+          <FileRow file={file} />
+        </button>
+      ) : (
+        <div className="flex items-center gap-2 px-1.5 py-1.5">
+          <FileRow file={file} />
+        </div>
+      )}
+    </li>
   );
 }
 

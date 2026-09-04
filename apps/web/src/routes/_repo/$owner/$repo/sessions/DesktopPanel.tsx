@@ -81,12 +81,6 @@ function isAgentBrowsingActive(agentBrowsingAt: number | undefined): boolean {
   return Date.now() - agentBrowsingAt < AGENT_BROWSING_LOCK_TTL_MS;
 }
 
-/** `?mockAgentBrowsing` lights the pane beam without a live lock. */
-function mockAgentBrowsing(): boolean {
-  if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).has("mockAgentBrowsing");
-}
-
 export function DesktopPanel({
   cacheKey,
   sandboxId,
@@ -116,8 +110,7 @@ export function DesktopPanel({
     launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
   };
 
-  const isAgentBrowsing =
-    isAgentBrowsingActive(agentBrowsingAt) || mockAgentBrowsing();
+  const isAgentBrowsing = isAgentBrowsingActive(agentBrowsingAt);
 
   // The agent only takes the browsing lock after `browser_start`, so Chrome is
   // already up — auto-start (start + readiness poll) instead of asking the user

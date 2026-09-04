@@ -253,13 +253,9 @@ export function WebPreviewPanel({
       setContain(false);
       return;
     }
-    const rect = iframeElement?.getBoundingClientRect();
-    setContainSize(
-      snapshotFillViewport({
-        width: rect?.width ?? 1280,
-        height: rect?.height ?? 800,
-      }),
-    );
+    // Keep the stored box (default 1280×800) so the pane letterboxes
+    // immediately — snapshotting the fill rect would match the panel and
+    // look like a no-op until the splitter moved.
     setContain(true);
   }
 

@@ -19,6 +19,7 @@ import {
 import { useAction } from "convex/react";
 import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
 import { withMutationToast } from "@/lib/utils/mutationToast";
+import { ConfirmSkipHint, skipConfirmTitle } from "@/lib/confirm";
 
 export interface SessionMenuSession {
   _id: Id<"sessions">;
@@ -153,9 +154,13 @@ export function SessionMenuItems({
       {onSendForReview ? (
         <>
           <ContextMenuSeparator />
-          <ContextMenuItem onSelect={onSendForReview}>
+          <ContextMenuItem
+            onSelect={onSendForReview}
+            title={skipConfirmTitle("Send for Review")}
+          >
             <IconEye size={16} className="text-status-code-review" />
             Send for Review
+            <ConfirmSkipHint />
           </ContextMenuItem>
         </>
       ) : null}
@@ -175,9 +180,14 @@ export function SessionMenuItems({
       {onArchiveRequest ? (
         <>
           <ContextMenuSeparator />
-          <ContextMenuItem className="text-warning" onSelect={onArchiveRequest}>
+          <ContextMenuItem
+            className="text-warning"
+            onSelect={onArchiveRequest}
+            title={skipConfirmTitle("Archive")}
+          >
             <IconArchive size={16} />
             Archive
+            <ConfirmSkipHint />
           </ContextMenuItem>
         </>
       ) : null}

@@ -23,6 +23,12 @@ import {
   IconDots,
   IconX,
 } from "@tabler/icons-react";
+import {
+  ConfirmSkipHint,
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
 
 export type BulkAction =
   | "actions"
@@ -41,6 +47,8 @@ interface QuickTasksBulkBarProps {
   onExitSelect: () => void;
   activeBulkAction: BulkAction | null;
   onSetBulkAction: (action: BulkAction | null) => void;
+  /** Alt-click skips the confirm dialog for these actions. */
+  onSkipConfirm?: Partial<Pick<Record<BulkAction, () => void>, "delete" | "run">>;
 }
 
 interface ActionDef {
@@ -94,16 +102,19 @@ function BarButton({
   action,
   disabled,
   onClick,
+  showSkipHint,
 }: {
   action: ActionDef;
   disabled: boolean;
   onClick: () => void;
+  showSkipHint?: boolean;
 }) {
   const Icon = action.icon;
   return (
     <button
       type="button"
       aria-label={action.label}
+      title={showSkipHint ? skipConfirmTitle(action.label) : action.label}
       onClick={onClick}
       disabled={disabled}
       // `motion-press`, not `transition-colors`: the destructive Delete takes
@@ -119,6 +130,7 @@ function BarButton({
       <span className="hidden sm:inline">
         {action.shortLabel ?? action.label}
       </span>
+      {showSkipHint ? <ConfirmSkipHint /> : null}
     </button>
   );
 }
@@ -129,8 +141,22 @@ export function QuickTasksBulkBar({
   onExitSelect,
   activeBulkAction: _activeBulkAction,
   onSetBulkAction,
+  onSkipConfirm,
 }: QuickTasksBulkBarProps) {
   const hasSelection = selectedCount > 0;
+  const altHeld = useAltHeld();
+
+  const activate = (action: BulkAction) => {
+    const skip =
+      action === "delete" || action === "run"
+        ? onSkipConfirm?.[action]
+        : undefined;
+    if (skip) {
+      requestConfirm(altHeld, () => onSetBulkAction(action), skip);
+      return;
+    }
+    onSetBulkAction(action);
+  };
 
   return (
     <AnimatePresence initial={false}>
@@ -166,7 +192,8 @@ export function QuickTasksBulkBar({
                   key={action.key}
                   action={action}
                   disabled={!hasSelection}
-                  onClick={() => onSetBulkAction(action.key)}
+                  showSkipHint={action.key === "run"}
+                  onClick={() => activate(action.key)}
                 />
               ))}
 
@@ -206,7 +233,8 @@ export function QuickTasksBulkBar({
               <BarButton
                 action={deleteAction}
                 disabled={!hasSelection}
-                onClick={() => onSetBulkAction(deleteAction.key)}
+                showSkipHint
+                onClick={() => activate(deleteAction.key)}
               />
 
               <Separator

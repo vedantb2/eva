@@ -37,6 +37,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
 
 interface QueuedMessageItem {
   id: Id<"queuedMessages">;
@@ -198,6 +203,7 @@ function SortableQueuedItem({
           {onDeleteClick ? (
             <QueueItemAction
               aria-label="Delete queued message"
+              title={skipConfirmTitle("Delete queued message")}
               onClick={() => onDeleteClick(item)}
             >
               <IconTrash size={14} />
@@ -235,6 +241,20 @@ export function QueuedMessagesPanel({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const altHeld = useAltHeld();
+
+  const deleteQueued = async (item: QueuedMessageItem) => {
+    if (!onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(item.id);
+      setDeletingItem(null);
+    } catch (error) {
+      setIsDeleting(false);
+      throw error;
+    }
+    setIsDeleting(false);
+  };
 
   const editingId = editingItem?.id ?? null;
   if (editingId !== draftForId) {
@@ -300,7 +320,18 @@ export function QueuedMessagesPanel({
                       draggable={draggable}
                       renderContent={renderContent}
                       onEditClick={onEdit ? setEditingItem : undefined}
-                      onDeleteClick={onDelete ? setDeletingItem : undefined}
+                      onDeleteClick={
+                        onDelete
+                          ? (item) =>
+                              requestConfirm(
+                                altHeld,
+                                () => setDeletingItem(item),
+                                () => {
+                                  void deleteQueued(item);
+                                },
+                              )
+                          : undefined
+                      }
                       onMoveToFront={onReorder ? handleMoveToFront : undefined}
                     />
                   ))}
@@ -383,19 +414,9 @@ export function QueuedMessagesPanel({
             <Button
               variant="destructive"
               disabled={isDeleting || !deletingItem || !onDelete}
-              onClick={async () => {
-                if (!deletingItem || !onDelete) {
-                  return;
-                }
-                setIsDeleting(true);
-                try {
-                  await onDelete(deletingItem.id);
-                  setDeletingItem(null);
-                } catch (error) {
-                  setIsDeleting(false);
-                  throw error;
-                }
-                setIsDeleting(false);
+              onClick={() => {
+                if (!deletingItem) return;
+                void deleteQueued(deletingItem);
               }}
             >
               Delete

@@ -78,6 +78,11 @@ import { TaskFilesSection } from "./_components/TaskFilesSection";
 import { useTaskAttachments } from "./useTaskAttachments";
 import { QUICK_TASK_OPTION_BADGE_CLASS } from "./_utils/optionBadge";
 import { withMutationToast } from "@/lib/utils/mutationToast";
+import {
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
@@ -133,6 +138,7 @@ export function QuickTaskModal({
   );
   const [confirmDeleteId, setConfirmDeleteId] =
     useState<Id<"agentTasks"> | null>(null);
+  const altHeld = useAltHeld();
   const [selectedProjectId, setSelectedProjectId] = useState<
     Id<"projects"> | undefined
   >(initialDraft?.projectId ?? projectId);
@@ -732,8 +738,17 @@ export function QuickTaskModal({
                               <button
                                 type="button"
                                 aria-label={`Delete draft ${draft.title || "Untitled"}`}
+                                title={skipConfirmTitle("Delete draft")}
                                 className="reveal-on-hover max-sm:hit-target relative z-2 shrink-0 rounded p-0.5 hover:bg-destructive/10 hover:text-destructive"
-                                onClick={() => setConfirmDeleteId(draft._id)}
+                                onClick={() =>
+                                  requestConfirm(
+                                    altHeld,
+                                    () => setConfirmDeleteId(draft._id),
+                                    () => {
+                                      void handleDeleteDraft(draft._id);
+                                    },
+                                  )
+                                }
                               >
                                 <IconTrash size={14} />
                               </button>

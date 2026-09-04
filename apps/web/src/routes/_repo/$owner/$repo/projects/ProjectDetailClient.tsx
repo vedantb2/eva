@@ -78,6 +78,12 @@ import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { EntityResolveStatus } from "@/lib/numId";
 import { parseSpec } from "@/lib/utils/parseSpec";
+import {
+  ConfirmSkipHint,
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
 import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
 import { withMutationToast } from "@/lib/utils/mutationToast";
 
@@ -112,6 +118,7 @@ export function ProjectDetailClient({
   const [showResolveConfirm, setShowResolveConfirm] = useState(false);
   const [showStartupCommandsConfirm, setShowStartupCommandsConfirm] =
     useState(false);
+  const altHeld = useAltHeld();
   const [isCreatingPr, setIsCreatingPr] = useState(false);
   const [isResolvingConflicts, setIsResolvingConflicts] = useState(false);
   const [prError, setPrError] = useState<string | null>(null);
@@ -425,7 +432,16 @@ export function ProjectDetailClient({
                 <DropdownMenuContent align="end">
                   {showResolveConflicts && (
                     <DropdownMenuItem
-                      onClick={() => setShowResolveConfirm(true)}
+                      title={skipConfirmTitle("Resolve Conflicts")}
+                      onClick={() =>
+                        requestConfirm(
+                          altHeld,
+                          () => setShowResolveConfirm(true),
+                          () => {
+                            void handleResolveConflicts();
+                          },
+                        )
+                      }
                       disabled={isResolvingConflicts}
                     >
                       {isResolvingConflicts ? (
@@ -434,6 +450,7 @@ export function ProjectDetailClient({
                         <IconHammer size={14} />
                       )}
                       Resolve Conflicts
+                      <ConfirmSkipHint />
                     </DropdownMenuItem>
                   )}
                   {showResolveConflicts && hasSandboxCommandItems ? (
@@ -441,7 +458,14 @@ export function ProjectDetailClient({
                   ) : null}
                   {showRetryStartupCommands && (
                     <DropdownMenuItem
-                      onClick={() => setShowStartupCommandsConfirm(true)}
+                      title={skipConfirmTitle("Run Startup Commands")}
+                      onClick={() =>
+                        requestConfirm(
+                          altHeld,
+                          () => setShowStartupCommandsConfirm(true),
+                          handleRetryStartupCommands,
+                        )
+                      }
                       disabled={isRetryingStartupCommands}
                     >
                       {isRetryingStartupCommands ? (
@@ -450,6 +474,7 @@ export function ProjectDetailClient({
                         <IconRefresh size={14} />
                       )}
                       Run Startup Commands
+                      <ConfirmSkipHint />
                     </DropdownMenuItem>
                   )}
                   {showRunBackgroundCommands && (
@@ -550,7 +575,16 @@ export function ProjectDetailClient({
                     size="sm"
                     variant="destructive"
                     aria-label="Stop build"
-                    onClick={() => setShowStopBuildConfirm(true)}
+                    title={skipConfirmTitle("Stop Build")}
+                    onClick={() =>
+                      requestConfirm(
+                        altHeld,
+                        () => setShowStopBuildConfirm(true),
+                        () => {
+                          void handleStopBuild();
+                        },
+                      )
+                    }
                     disabled={isStoppingBuild}
                   >
                     {isStoppingBuild ? (
@@ -563,6 +597,7 @@ export function ProjectDetailClient({
                       <IconPlayerStop size={16} aria-hidden />
                     )}
                     <span className="hidden sm:inline">Stop Build</span>
+                    <ConfirmSkipHint />
                   </Button>
                 ) : (
                   <SplitBuildButton

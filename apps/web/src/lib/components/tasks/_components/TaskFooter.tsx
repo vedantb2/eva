@@ -31,6 +31,7 @@ import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
+import { ConfirmSkipHint, skipConfirmTitle } from "@/lib/confirm";
 
 type RunDoc = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
@@ -187,6 +188,7 @@ export function TaskFooter({
                   <DropdownMenuItem
                     onClick={onResolveConfirm}
                     disabled={isStarting}
+                    title={skipConfirmTitle("Resolve Conflicts")}
                   >
                     {isStarting ? (
                       <IconLoader2 size={14} className="animate-spin" />
@@ -194,6 +196,7 @@ export function TaskFooter({
                       <IconHammer size={14} />
                     )}
                     Resolve Conflicts
+                    <ConfirmSkipHint />
                   </DropdownMenuItem>
                 )}
                 {showResolveConflicts && hasSandboxCommandItems ? (
@@ -203,6 +206,7 @@ export function TaskFooter({
                   <DropdownMenuItem
                     onClick={onRunStartupCommands}
                     disabled={isRetryingStartupCommands}
+                    title={skipConfirmTitle("Run Startup Commands")}
                   >
                     {isRetryingStartupCommands ? (
                       <IconLoader2 size={14} className="animate-spin" />
@@ -210,12 +214,14 @@ export function TaskFooter({
                       <IconRefresh size={14} />
                     )}
                     Run Startup Commands
+                    <ConfirmSkipHint />
                   </DropdownMenuItem>
                 )}
                 {showRunDevServer ? (
                   <DropdownMenuItem
                     onClick={onRunDevServer}
                     disabled={isRunningDevServer}
+                    title={skipConfirmTitle("Run Dev Server")}
                   >
                     {isRunningDevServer ? (
                       <IconLoader2 size={14} className="animate-spin" />
@@ -223,6 +229,7 @@ export function TaskFooter({
                       <IconPlayerPlay size={14} />
                     )}
                     Run Dev Server
+                    <ConfirmSkipHint />
                   </DropdownMenuItem>
                 ) : null}
                 {showRunBackgroundCommands ? (

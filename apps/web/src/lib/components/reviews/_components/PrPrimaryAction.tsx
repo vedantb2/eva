@@ -29,6 +29,12 @@ import {
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { mergeBlocker } from "./prMergeState";
 import type { PrOverview } from "./prOverviewMeta";
+import {
+  ConfirmSkipHint,
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
 
 type MergeMethod = "merge" | "squash" | "rebase";
 
@@ -83,6 +89,7 @@ function MergeAction({
   const [method, setMethod] = useState<MergeMethod>("squash");
   const [confirming, setConfirming] = useState(false);
   const [merging, setMerging] = useState(false);
+  const altHeld = useAltHeld();
 
   const canMerge = !overview.draft && overview.mergeable === true;
   const blocked = mergeBlocker(overview)?.detail ?? null;
@@ -120,11 +127,21 @@ function MergeAction({
         <Button
           size="sm"
           disabled={!canMerge}
-          onClick={() => setConfirming(true)}
-          title={blocked ?? methodLabel}
+          onClick={(event) =>
+            requestConfirm(
+              altHeld,
+              () => setConfirming(true),
+              () => {
+                void runMerge();
+              },
+              event,
+            )
+          }
+          title={blocked ?? skipConfirmTitle(methodLabel)}
         >
           <IconGitMerge size={14} aria-hidden />
           Merge
+          <ConfirmSkipHint />
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -229,6 +246,7 @@ function RevertAction({ overview }: { overview: PrOverview }) {
   const createSession = useConvexMutation(api.sessions.create);
   const [starting, setStarting] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const altHeld = useAltHeld();
 
   const sha = overview.mergeCommitSha;
 
@@ -258,9 +276,23 @@ function RevertAction({ overview }: { overview: PrOverview }) {
 
   return (
     <>
-      <Button size="sm" onClick={() => setConfirming(true)}>
+      <Button
+        size="sm"
+        title={skipConfirmTitle("Revert")}
+        onClick={(event) =>
+          requestConfirm(
+            altHeld,
+            () => setConfirming(true),
+            () => {
+              void start();
+            },
+            event,
+          )
+        }
+      >
         <IconArrowBackUp size={14} aria-hidden />
         Revert
+        <ConfirmSkipHint />
       </Button>
 
       <Dialog open={confirming} onOpenChange={setConfirming}>

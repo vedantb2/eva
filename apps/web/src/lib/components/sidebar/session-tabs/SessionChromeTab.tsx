@@ -24,6 +24,7 @@ import {
   useIsRegeneratingTitle,
 } from "@/lib/components/sidebar/SessionMenuItems";
 import type { TabGroupColor } from "@/lib/components/sidebar/session-tabs/tabGroupColors";
+import { skipConfirmTitle } from "@/lib/confirm";
 
 /**
  * Width a tab asks for before the strip starts squeezing, in rem. The tab row
@@ -219,7 +220,7 @@ export function SessionChromeTab({
               <button
                 type="button"
                 aria-label={`Archive ${session.title}`}
-                title="Archive session"
+                title={skipConfirmTitle("Archive session")}
                 className={cn(
                   // `motion-press` rather than the hand-rolled
                   // `transition-[color,background-color,opacity]`: archiving is

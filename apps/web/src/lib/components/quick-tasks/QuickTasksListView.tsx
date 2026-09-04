@@ -26,6 +26,12 @@ import {
 } from "@eva/ui";
 import { IconChevronRight, IconPlayerPlay } from "@tabler/icons-react";
 import {
+  ConfirmSkipHint,
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
+import {
   statusConfig,
   TASK_STATUSES,
   type DisplayTaskStatus,
@@ -105,6 +111,7 @@ export function QuickTasksListView({
 
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const altHeld = useAltHeld();
   const [openSections, setOpenSections] = useState<Set<DisplayTaskStatus>>(
     () => new Set(TASK_STATUSES),
   );
@@ -249,7 +256,17 @@ export function QuickTasksListView({
                       {status === "todo" && todoTasks.length > 0 && (
                         <Button
                           size="sm"
-                          onClick={() => setIsConfirmOpen(true)}
+                          title={skipConfirmTitle("Run All")}
+                          onClick={(event) =>
+                            requestConfirm(
+                              altHeld,
+                              () => setIsConfirmOpen(true),
+                              () => {
+                                void handleRunAll();
+                              },
+                              event,
+                            )
+                          }
                           disabled={isRunningAll}
                           className="mr-2 min-h-[36px]"
                         >
@@ -260,6 +277,7 @@ export function QuickTasksListView({
                           )}
                           <span className="hidden sm:inline">Run All</span>
                           <span className="sm:hidden">Run</span>
+                          <ConfirmSkipHint />
                         </Button>
                       )}
                     </div>

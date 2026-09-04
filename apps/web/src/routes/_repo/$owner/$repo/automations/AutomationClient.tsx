@@ -32,6 +32,12 @@ import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { isAutomationTab, type AutomationTab } from "@/lib/search-params";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import {
+  ConfirmSkipHint,
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
+import {
   catchMutationError,
   withMutationToast,
 } from "@/lib/utils/mutationToast";
@@ -216,6 +222,7 @@ function SettingsForm({
   const [cronDraft, setCronDraft] = useState(automation.cronSchedule);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const altHeld = useAltHeld();
   const titleFieldId = useId();
   const promptFieldId = useId();
   const model = normalizeAIModel(automation.model ?? repo.defaultModel);
@@ -370,10 +377,21 @@ function SettingsForm({
         <Button
           variant="destructive"
           size="sm"
-          onClick={() => setShowDeleteDialog(true)}
+          title={skipConfirmTitle("Delete")}
+          onClick={(event) =>
+            requestConfirm(
+              altHeld,
+              () => setShowDeleteDialog(true),
+              () => {
+                void handleDelete();
+              },
+              event,
+            )
+          }
         >
           <IconTrash size={14} />
           Delete
+          <ConfirmSkipHint />
         </Button>
       </SettingsSection>
 

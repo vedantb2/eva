@@ -49,6 +49,11 @@ import {
   catchMutationError,
   withMutationToast,
 } from "@/lib/utils/mutationToast";
+import {
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
 
 export interface EnvVar {
   key: string;
@@ -94,6 +99,7 @@ export function EnvVarsTable({
   const [editValue, setEditValue] = useState("");
 
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  const altHeld = useAltHeld();
 
   const [revealedValues, setRevealedValues] = useState<Record<string, string>>(
     {},
@@ -173,18 +179,18 @@ export function EnvVarsTable({
     setSaving(false);
   };
 
-  const confirmDelete = async () => {
-    if (!deleteKey || !onRemove) return;
+  const confirmDelete = async (key: string | null = deleteKey) => {
+    if (!key || !onRemove) return;
     try {
       await withMutationToast(
-        onRemove(deleteKey),
+        onRemove(key),
         "Variable deleted",
         "Couldn't delete variable",
         "env-var-delete",
       );
       setRevealedValues((prev) => {
         const next = { ...prev };
-        delete next[deleteKey];
+        delete next[key];
         return next;
       });
       setDeleteKey(null);
@@ -398,8 +404,17 @@ export function EnvVarsTable({
                 <Button
                   size="icon-sm"
                   variant="ghost"
-                  onClick={() => setDeleteKey(v.key)}
-                  title="Delete"
+                  onClick={(event) =>
+                    requestConfirm(
+                      altHeld,
+                      () => setDeleteKey(v.key),
+                      () => {
+                        void confirmDelete(v.key);
+                      },
+                      event,
+                    )
+                  }
+                  title={skipConfirmTitle("Delete")}
                   className="max-sm:hit-target text-destructive hover:text-destructive"
                 >
                   <IconTrash size={14} />
@@ -684,7 +699,11 @@ export function EnvVarsTable({
             >
               Cancel
             </Button>
-            <Button size="sm" variant="destructive" onClick={confirmDelete}>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => void confirmDelete()}
+            >
               Delete
             </Button>
           </DialogFooter>

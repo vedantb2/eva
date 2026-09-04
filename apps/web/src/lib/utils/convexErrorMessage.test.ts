@@ -1,6 +1,11 @@
 import { ConvexError } from "convex/values";
 import { describe, expect, test } from "vitest";
-import { convexErrorMessage, convexErrorTag } from "./convexErrorMessage";
+import {
+  convexErrorMessage,
+  convexErrorPresentation,
+  convexErrorTag,
+  errorToneClassName,
+} from "./convexErrorMessage";
 
 /**
  * Production Convex redacts the message of a plain `Error` to "Server Error",
@@ -103,5 +108,84 @@ describe("convexErrorTag", () => {
     expect(convexErrorTag(new Error("Not authenticated"))).toBeUndefined();
     expect(convexErrorTag("boom")).toBeUndefined();
     expect(convexErrorTag(undefined)).toBeUndefined();
+  });
+});
+
+/**
+ * "Nothing to do" is not a fault: a plan-only turn ends with a branch that has
+ * no commits, so Create PR failing there is the expected outcome and must not
+ * read as a red error.
+ */
+describe("convexErrorPresentation", () => {
+  const infoTags = [
+    "GitHubBranchNotAhead",
+    "GitHubPullRequestAlreadyExists",
+    "RecapAuthorNotRecapped",
+    "RecapPrUrlInvalid",
+  ];
+
+  test.each(infoTags)("%s is an outcome, not a failure", (tag) => {
+    expect(
+      convexErrorPresentation(
+        new ConvexError({ tag, message: "Nothing to do" }),
+        "Failed to create PR",
+      ),
+    ).toEqual({ message: "Nothing to do", tone: "info" });
+  });
+
+  test("any other tag is a real failure", () => {
+    expect(
+      convexErrorPresentation(
+        new ConvexError({
+          tag: "GitNetworkError",
+          message: "Could not reach GitHub",
+        }),
+        "Failed to create PR",
+      ),
+    ).toEqual({ message: "Could not reach GitHub", tone: "error" });
+  });
+
+  test("an unknown tag is a real failure", () => {
+    expect(
+      convexErrorPresentation(
+        new ConvexError({ tag: "SomeTagAddedLater", message: "Boom" }),
+        "Failed to create PR",
+      ),
+    ).toEqual({ message: "Boom", tone: "error" });
+  });
+
+  test("legacy string data carries no tag, so it is a failure", () => {
+    expect(
+      convexErrorPresentation(
+        new ConvexError("eva/task-12 is not ahead of staging"),
+        "Failed to create PR",
+      ),
+    ).toEqual({
+      message: "eva/task-12 is not ahead of staging",
+      tone: "error",
+    });
+  });
+
+  test("a plain Error is a failure and keeps its message", () => {
+    expect(
+      convexErrorPresentation(
+        new Error("Not authenticated"),
+        "Failed to create PR",
+      ),
+    ).toEqual({ message: "Not authenticated", tone: "error" });
+  });
+
+  test("a throw with no message falls back and stays a failure", () => {
+    expect(convexErrorPresentation("boom", "Failed to create PR")).toEqual({
+      message: "Failed to create PR",
+      tone: "error",
+    });
+  });
+});
+
+describe("errorToneClassName", () => {
+  test("maps tone to text colour only", () => {
+    expect(errorToneClassName("info")).toBe("text-muted-foreground");
+    expect(errorToneClassName("error")).toBe("text-destructive");
   });
 });

@@ -16,7 +16,11 @@ import {
   type StoredModelTraits,
 } from "@eva/backend";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
-import { convexErrorMessage } from "@/lib/utils/convexErrorMessage";
+import {
+  convexErrorPresentation,
+  errorToneClassName,
+  type ConvexErrorPresentation,
+} from "@/lib/utils/convexErrorMessage";
 import {
   ActivityTasks,
   Spinner,
@@ -57,7 +61,8 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
   const { basePath, repo } = useRepo();
   const generatePrRecap = useAction(api.docs.generatePrRecap);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateError, setGenerateError] =
+    useState<ConvexErrorPresentation | null>(null);
   const [view, setView] = useState<"recap" | "summary">("recap");
   // Only the pending override lives in state; the last run's setup is read off
   // the recap doc, so a reload shows what actually produced the recap.
@@ -94,7 +99,9 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
         ...toRunTraitArgs(traits),
       });
     } catch (error) {
-      setGenerateError(convexErrorMessage(error, "Couldn't generate recap"));
+      setGenerateError(
+        convexErrorPresentation(error, "Couldn't generate recap"),
+      );
     }
     setIsGenerating(false);
   };
@@ -132,7 +139,9 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
             Generate a recap of this pull request for reviewers.
           </p>
           {generateError ? (
-            <p className="text-sm text-destructive">{generateError}</p>
+            <p className={`text-sm ${errorToneClassName(generateError.tone)}`}>
+              {generateError.message}
+            </p>
           ) : null}
           <RecapGenerateControls
             repoId={repoId}
@@ -277,7 +286,11 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
       )}
 
       {generateError ? (
-        <p className="px-3 py-1 text-sm text-destructive">{generateError}</p>
+        <p
+          className={`px-3 py-1 text-sm ${errorToneClassName(generateError.tone)}`}
+        >
+          {generateError.message}
+        </p>
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto px-3 py-3">

@@ -151,4 +151,8 @@ Production Convex redacts a thrown `Error` to "Server Error"; only
 - There is deliberately no `customAction`-based `effectAction` wrapper: the
   runner drops into any `action`/`authAction` handler as-is.
 - Any web caller that catches an action error must go through
-  `convexErrorMessage`, or a structured payload renders as a JSON blob.
+  `convexErrorMessage` (or `convexErrorPresentation`, which also returns a
+  `tone` from the single tag→tone table — add a tag there when the outcome is
+  not a failure), or a structured payload renders as a JSON blob.
+- Pick actions to convert from prod evidence (Axiom dataset `eva`, filter
+  `['data.status'] == "failure"` by `['data.function.path']`), not by sweep.

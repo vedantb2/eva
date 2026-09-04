@@ -42,3 +42,50 @@ export function convexErrorMessage(error: unknown, fallback: string): string {
 export function convexErrorTag(error: unknown): string | undefined {
   return convexErrorPayload(error)?.tag;
 }
+
+/** How a failed call should read: an ordinary outcome, or something broken. */
+export type ErrorTone = "info" | "error";
+
+export type ConvexErrorPresentation = {
+  message: string;
+  tone: ErrorTone;
+};
+
+/**
+ * The tags whose "failure" is an outcome rather than a fault.
+ *
+ * Some calls fail because there was nothing to do — the branch carries no
+ * commits to open a PR from (the ordinary end of a plan-only turn), the PR is
+ * already open, the author was never recapped — or because the user typed a
+ * URL that is not a pull request. Painting those destructive red tells the user
+ * Eva broke when it did not. Everything else, including tags added later, is a
+ * real failure until it is listed here.
+ */
+const TONE_BY_TAG: Readonly<Record<string, ErrorTone | undefined>> = {
+  GitHubBranchNotAhead: "info",
+  GitHubPullRequestAlreadyExists: "info",
+  RecapAuthorNotRecapped: "info",
+  RecapPrUrlInvalid: "info",
+};
+
+/**
+ * The message to show for a failed Convex call, plus the tone to show it in.
+ * The one place that decides which backend errors are outcomes rather than
+ * failures, so the surfaces that render them cannot disagree.
+ */
+export function convexErrorPresentation(
+  error: unknown,
+  fallback: string,
+): ConvexErrorPresentation {
+  const tag = convexErrorTag(error);
+  const tone = tag === undefined ? "error" : (TONE_BY_TAG[tag] ?? "error");
+  return { message: convexErrorMessage(error, fallback), tone };
+}
+
+/**
+ * The text colour for a tone. Hierarchy by tone only — no border or icon, per
+ * `docs/eva-ui.md`.
+ */
+export function errorToneClassName(tone: ErrorTone): string {
+  return tone === "info" ? "text-muted-foreground" : "text-destructive";
+}

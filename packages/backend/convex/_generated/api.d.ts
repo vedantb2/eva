@@ -139,6 +139,7 @@ import type * as _projects_queries from "../_projects/queries.js";
 import type * as _projects_sandbox from "../_projects/sandbox.js";
 import type * as _pty_launchDevServerInVercelConsole from "../_pty/launchDevServerInVercelConsole.js";
 import type * as _pty_owners from "../_pty/owners.js";
+import type * as _pty_ptyErrors from "../_pty/ptyErrors.js";
 import type * as _pty_vercel from "../_pty/vercel.js";
 import type * as _queues_helpers from "../_queues/helpers.js";
 import type * as _repoSkills_content from "../_repoSkills/content.js";
@@ -183,6 +184,7 @@ import type * as _sandbox_runtime_httpReadyProbe from "../_sandbox_runtime/httpR
 import type * as _sandbox_runtime_launch from "../_sandbox_runtime/launch.js";
 import type * as _sandbox_runtime_lifecycle from "../_sandbox_runtime/lifecycle.js";
 import type * as _sandbox_runtime_prepareSandboxSteps from "../_sandbox_runtime/prepareSandboxSteps.js";
+import type * as _sandbox_runtime_previewErrors from "../_sandbox_runtime/previewErrors.js";
 import type * as _sandbox_runtime_previewProxy from "../_sandbox_runtime/previewProxy.js";
 import type * as _sandbox_runtime_previewRecovery from "../_sandbox_runtime/previewRecovery.js";
 import type * as _sandbox_runtime_resumeSandboxSteps from "../_sandbox_runtime/resumeSandboxSteps.js";
@@ -533,6 +535,7 @@ declare const fullApi: ApiFromModules<{
   "_projects/sandbox": typeof _projects_sandbox;
   "_pty/launchDevServerInVercelConsole": typeof _pty_launchDevServerInVercelConsole;
   "_pty/owners": typeof _pty_owners;
+  "_pty/ptyErrors": typeof _pty_ptyErrors;
   "_pty/vercel": typeof _pty_vercel;
   "_queues/helpers": typeof _queues_helpers;
   "_repoSkills/content": typeof _repoSkills_content;
@@ -577,6 +580,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/launch": typeof _sandbox_runtime_launch;
   "_sandbox_runtime/lifecycle": typeof _sandbox_runtime_lifecycle;
   "_sandbox_runtime/prepareSandboxSteps": typeof _sandbox_runtime_prepareSandboxSteps;
+  "_sandbox_runtime/previewErrors": typeof _sandbox_runtime_previewErrors;
   "_sandbox_runtime/previewProxy": typeof _sandbox_runtime_previewProxy;
   "_sandbox_runtime/previewRecovery": typeof _sandbox_runtime_previewRecovery;
   "_sandbox_runtime/resumeSandboxSteps": typeof _sandbox_runtime_resumeSandboxSteps;

@@ -21,6 +21,7 @@ import { resolveDaemonPaths } from "./daemonPaths.js";
 import {
   callConvexWithRetry,
   callHarnessSkillCatalogReport,
+  unwrapConvexMutationPayload,
   type HarnessCommandReport,
 } from "../http/convexClient.js";
 import {
@@ -35,13 +36,9 @@ import {
   startStreamingLoops,
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
-import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
+import { emitParsedStreamLine } from "../parse/streamRouter.js";
 import { serializeSteps } from "../parse/stepBudget.js";
-import {
-  appendToRawLogFile,
-  appendToRawOutput,
-  trimBufferHead,
-} from "../runtime/buffers.js";
+import { trimBufferHead } from "../runtime/buffers.js";
 import {
   syncClaudeStateToPersist,
   prepareClaudeSessionState,
@@ -513,14 +510,8 @@ async function finalizeTurn(
 }
 
 function readSyntheticTurnMessageId(result: JsonValue): string | null {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload =
-    typeof inner === "object" && inner !== null && !Array.isArray(inner)
-      ? inner
-      : result;
+  const payload = unwrapConvexMutationPayload(result);
+  if (!payload) return null;
   const messageId = payload.messageId;
   return typeof messageId === "string" ? messageId : null;
 }
@@ -1377,10 +1368,8 @@ function handleDaemonMessage(
     );
   }
   const line = JSON.stringify(message) + "\n";
-  appendToRawLogFile(line);
+  emitParsedStreamLine(line);
   const nextOutput = trimBufferHead(output + line);
-  appendToRawOutput(line);
-  processRealtimeStdoutChunk(line);
 
   const isResult = message.type === "result";
   return { output: nextOutput, isResult };

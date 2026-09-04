@@ -49,6 +49,26 @@ export function pidAlive(pid: number): boolean {
 }
 
 /**
+ * Best-effort `/proc/.../oom_score_adj` write. Callers choose the score;
+ * missing procfs or privilege just no-ops.
+ */
+export function writeOomScoreAdj(
+  target: "self" | number,
+  score: string,
+): void {
+  if (target !== "self" && !target) return;
+  const path =
+    target === "self"
+      ? "/proc/self/oom_score_adj"
+      : `/proc/${target}/oom_score_adj`;
+  try {
+    writeFileSync(path, score);
+  } catch {
+    /* Non-Linux and restricted procfs fail open. */
+  }
+}
+
+/**
  * True when a newer callback bundle was uploaded while this daemon is running.
  * The daemon then stops claiming so the next prewarm can spawn with fresh code.
  */

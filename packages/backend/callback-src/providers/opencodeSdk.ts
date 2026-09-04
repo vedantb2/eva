@@ -9,12 +9,8 @@ import {
 } from "../config.js";
 import { evaMcpServers } from "../evaMcp.js";
 import { updateThinkingStep } from "../parse/canonical.js";
-import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
-import {
-  appendToRawLogFile,
-  appendToRawOutput,
-  trimBufferHead,
-} from "../runtime/buffers.js";
+import { emitParsedStreamLine } from "../parse/streamRouter.js";
+import { appendToRawLogFile, trimBufferHead } from "../runtime/buffers.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import {
   syncOpencodeStateToPersist,
@@ -434,10 +430,8 @@ export async function runOpencodeSdkAttempt(
   let lastIdleProbeAt = 0;
 
   const pushLine = (line: string): void => {
-    appendToRawLogFile(line);
+    emitParsedStreamLine(line);
     attemptOutput = trimBufferHead(attemptOutput + line);
-    appendToRawOutput(line);
-    processRealtimeStdoutChunk(line);
   };
 
   const emitPart = (part: OpencodePart): void => {

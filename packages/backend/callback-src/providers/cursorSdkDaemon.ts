@@ -56,6 +56,7 @@ import {
   selectClaimPollIntervalMs,
   sleep,
   startDaemonDepositionFence,
+  writeOomScoreAdj,
 } from "../runtime/daemonProcess.js";
 import { readCancelRequested } from "./claimPendingTurnParse.js";
 import {
@@ -247,14 +248,7 @@ function spawnCursorTurnWorker(
   // so host-level pressure sacrifices it before the process that reports the
   // failure and accepts the next message.
   if (child.pid !== undefined) {
-    try {
-      writeFileSync(
-        `/proc/${child.pid}/oom_score_adj`,
-        CURSOR_TURN_WORKER_OOM_SCORE,
-      );
-    } catch {
-      // Non-Linux and restricted procfs environments fail open.
-    }
+    writeOomScoreAdj(child.pid, CURSOR_TURN_WORKER_OOM_SCORE);
   }
   return child;
 }

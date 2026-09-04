@@ -16,7 +16,7 @@ import {
   opencodeCommand,
 } from "../config.js";
 import { log, tryParseJson } from "../utils.js";
-import { sleep } from "../runtime/daemonProcess.js";
+import { pidAlive, sleep, writeOomScoreAdj } from "../runtime/daemonProcess.js";
 
 /**
  * Eva-managed `opencode serve` process — one healthy HTTP server per sandbox,
@@ -141,13 +141,7 @@ function spawnServer(): number {
     // reporter. Without this the server would inherit that protection and a
     // memory-hungry tool could get the reporter killed instead of itself.
     // Raising a score on our own child is always permitted.
-    if (pid) {
-      try {
-        writeFileSync("/proc/" + String(pid) + "/oom_score_adj", "300");
-      } catch {
-        /* non-Linux or already exited — ignore */
-      }
-    }
+    writeOomScoreAdj(pid, "300");
     writeFileSync(
       SERVER_STATE_FILE,
       JSON.stringify({ pid, port: OPENCODE_SERVER_PORT }),
@@ -158,21 +152,11 @@ function spawnServer(): number {
   }
 }
 
-function processAlive(pid: number): boolean {
-  if (!pid) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function waitForHealth(pid: number): Promise<void> {
   const deadline = Date.now() + STARTUP_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (await probeHealth()) return;
-    if (pid && !processAlive(pid)) {
+    if (pid && !pidAlive(pid)) {
       throw new Error(
         "opencode serve exited during startup. Server log tail:\n" +
           readOpencodeServerLogTail(),

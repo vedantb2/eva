@@ -29,12 +29,8 @@ import {
 import { evaMcpServers } from "../evaMcp.js";
 import { cursorCompactionEventPhase } from "./cursor.js";
 import { pushNoticeStep, updateThinkingStep } from "../parse/canonical.js";
-import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
-import {
-  appendToRawLogFile,
-  appendToRawOutput,
-  trimBufferHead,
-} from "../runtime/buffers.js";
+import { emitParsedStreamLine } from "../parse/streamRouter.js";
+import { appendToRawLogFile, trimBufferHead } from "../runtime/buffers.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import {
   syncCursorStateToPersist,
@@ -976,10 +972,8 @@ export async function runCursorSdkAttempt(
   }, NO_OUTPUT_CHECK_INTERVAL_MS);
 
   const pushLine = (line: string): void => {
-    appendToRawLogFile(line);
+    emitParsedStreamLine(line);
     attemptOutput = trimBufferHead(attemptOutput + line);
-    appendToRawOutput(line);
-    processRealtimeStdoutChunk(line);
   };
 
   /** `getUsage()` is one cloud round trip; a failure only costs us the cost. */

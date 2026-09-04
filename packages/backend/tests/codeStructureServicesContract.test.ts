@@ -320,6 +320,82 @@ test("claim poll backoff uses selectClaimPollIntervalMs", () => {
   );
 });
 
+test("Convex mutation readers share unwrapConvexMutationPayload", () => {
+  const client = read("callback-src/http/convexClient.ts");
+  expect(client).toContain("export function unwrapConvexMutationPayload(");
+  expect(client).toContain("const inner = result.value");
+  for (const path of [
+    "callback-src/providers/claimPendingTurnParse.ts",
+    "callback-src/providers/claimedTurnLifecycle.ts",
+    "callback-src/runtime/pendingQuestion.ts",
+    "callback-src/providers/claudeSdkDaemon.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should unwrap via the shared helper`).toContain(
+      "unwrapConvexMutationPayload(",
+    );
+    expect(source, `${path} re-inlined the value envelope`).not.toContain(
+      "const inner = result.value",
+    );
+  }
+});
+
+test("parsed stream lines share emitParsedStreamLine", () => {
+  const router = read("callback-src/parse/streamRouter.ts");
+  expect(router).toContain("export function emitParsedStreamLine(");
+  expect(router).toContain("appendToRawLogFile(line)");
+  expect(router).toContain("appendToRawOutput(line)");
+  expect(router).toContain("processRealtimeStdoutChunk(line)");
+  for (const path of [
+    "callback-src/providers/claudeSdk.ts",
+    "callback-src/providers/codexSdk.ts",
+    "callback-src/providers/cursorSdk.ts",
+    "callback-src/providers/opencodeSdk.ts",
+    "callback-src/providers/claudeSdkDaemon.ts",
+    "callback-src/providers/codexAppServerDaemon.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should emit via the shared helper`).toContain(
+      "emitParsedStreamLine(",
+    );
+    expect(source, `${path} re-inlined the stream emit`).not.toContain(
+      "appendToRawOutput(line)",
+    );
+  }
+});
+
+test("Codex JSON objects share asJsonObject", () => {
+  const utils = read("callback-src/utils.ts");
+  expect(utils).toContain("export function asJsonObject(");
+  expect(read("callback-src/providers/codexAppServerDaemon.ts")).toContain(
+    "asJsonObject(",
+  );
+  expect(read("callback-src/providers/codexAppServerClient.ts")).toContain(
+    "asJsonObject(",
+  );
+  expect(read("callback-src/providers/codexAppServerDaemon.ts")).not.toContain(
+    "function objectValue(",
+  );
+  expect(read("callback-src/providers/codexAppServerClient.ts")).not.toContain(
+    "function objectValue(",
+  );
+});
+
+test("OOM score writes share writeOomScoreAdj", () => {
+  const service = read("callback-src/runtime/daemonProcess.ts");
+  expect(service).toContain("export function writeOomScoreAdj(");
+  expect(read("callback-src/index.ts")).toContain('writeOomScoreAdj("self"');
+  expect(read("callback-src/providers/opencodeServer.ts")).toContain(
+    "writeOomScoreAdj(",
+  );
+  expect(read("callback-src/providers/cursorSdkDaemon.ts")).toContain(
+    "writeOomScoreAdj(",
+  );
+  expect(read("callback-src/providers/opencodeServer.ts")).not.toContain(
+    "function processAlive(",
+  );
+});
+
 test("deployment status reads share fetchLatestDeploymentStatus", () => {
   const service = read("convex/_github/deploymentSnapshot.ts");
   expect(service).toContain("export async function fetchLatestDeploymentStatus(");

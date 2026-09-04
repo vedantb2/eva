@@ -1,4 +1,4 @@
-import { mkdirSync, unlinkSync, writeFileSync } from "fs";
+import { mkdirSync, unlinkSync } from "fs";
 import {
   ALLOWED_TOOLS,
   CLAIM_MUTATION,
@@ -60,6 +60,7 @@ import {
 } from "./providers/attempts.js";
 import type { JsonObject } from "./types.js";
 import { hasNewTaskCommitSince, log, readGitHeadSha } from "./utils.js";
+import { writeOomScoreAdj } from "./runtime/daemonProcess.js";
 import { serializeSteps } from "./parse/stepBudget.js";
 
 // Cursor chat turns run in disposable children so the SDK cannot retain heap
@@ -101,11 +102,7 @@ try {
 // die — not the process responsible for heartbeats and failure reporting.
 // Lowering our own score requires privilege, so this is best-effort; a spawned
 // child's score is raised at spawn time (opencodeServer.ts) as the portable half.
-try {
-  writeFileSync("/proc/self/oom_score_adj", "-600");
-} catch {
-  /* unprivileged or non-Linux — ignore */
-}
+writeOomScoreAdj("self", "-600");
 
 S.lastStepType = "thinking";
 

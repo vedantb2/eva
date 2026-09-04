@@ -408,7 +408,7 @@ describe("the cursor daemon's per-turn ordering", () => {
     expect(spawnWorker).toContain(
       "--max-old-space-size=${CURSOR_TURN_WORKER_HEAP_MB}",
     );
-    expect(spawnWorker).toContain("/oom_score_adj");
+    expect(spawnWorker).toContain("writeOomScoreAdj(");
     expect(spawnWorker).toContain("CURSOR_TURN_WORKER_OOM_SCORE");
   });
 });

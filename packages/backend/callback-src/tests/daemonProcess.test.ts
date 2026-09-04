@@ -12,6 +12,7 @@ import {
   readPidFromFile,
   selectClaimPollIntervalMs,
   sleep,
+  writeOomScoreAdj,
 } from "../runtime/daemonProcess.js";
 
 test("sleep resolves after the requested delay", async () => {
@@ -23,6 +24,10 @@ test("sleep resolves after the requested delay", async () => {
 test("pidAlive reports this process as live and a fake pid as dead", () => {
   expect(pidAlive(process.pid)).toBe(true);
   expect(pidAlive(2 ** 31 - 1)).toBe(false);
+});
+
+test("writeOomScoreAdj fails open on a missing pid", () => {
+  expect(() => writeOomScoreAdj(2 ** 31 - 1, "300")).not.toThrow();
 });
 
 test("callbackBundleWentStale is false when the fingerprint env is empty", () => {

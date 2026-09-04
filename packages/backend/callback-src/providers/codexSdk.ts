@@ -11,13 +11,9 @@ import {
   WORK_DIR,
   normalizedCodexModel,
 } from "../config.js";
-import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
+import { emitParsedStreamLine } from "../parse/streamRouter.js";
 import { updateThinkingStep } from "../parse/canonical.js";
-import {
-  appendToRawLogFile,
-  appendToRawOutput,
-  trimBufferHead,
-} from "../runtime/buffers.js";
+import { appendToRawLogFile, trimBufferHead } from "../runtime/buffers.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import type { ProviderAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
@@ -152,10 +148,8 @@ export async function runCodexSdkAttempt(
   }, NO_OUTPUT_CHECK_INTERVAL_MS);
 
   const emitLine = (line: string): void => {
-    appendToRawLogFile(line);
+    emitParsedStreamLine(line);
     attemptOutput = trimBufferHead(attemptOutput + line);
-    appendToRawOutput(line);
-    processRealtimeStdoutChunk(line);
   };
 
   try {

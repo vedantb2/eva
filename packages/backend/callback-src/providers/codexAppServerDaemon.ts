@@ -14,10 +14,9 @@ import {
 } from "../config.js";
 import { callConvexWithRetry } from "../http/convexClient.js";
 import { refreshDaemonGithubTokenFromEnv } from "./githubToken.js";
-import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
+import { emitParsedStreamLine } from "../parse/streamRouter.js";
 import { serializeSteps } from "../parse/stepBudget.js";
 import { getCodexAgentMessageText } from "../parse/toolSteps.js";
-import { appendToRawLogFile, appendToRawOutput } from "../runtime/buffers.js";
 import {
   buildClaudeShapedResult,
   computeCodexCostUsd,
@@ -44,7 +43,7 @@ import {
   writeCodexSessionState,
 } from "../session/codexSession.js";
 import type { JsonObject, JsonValue, SessionMode } from "../types.js";
-import { attemptElapsedMs, log } from "../utils.js";
+import { asJsonObject, attemptElapsedMs, log } from "../utils.js";
 import {
   DAEMON_CLAIM_POLL_TIMING,
   buildEntityMutationArgs,
@@ -90,19 +89,13 @@ let threadTotalUsage: JsonObject | null = null;
 let turnStartUsage: JsonObject | null = null;
 
 
-function objectValue(value: JsonValue | undefined): JsonObject {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? value
-    : {};
-}
-
 function stringField(value: JsonValue | undefined, field: string): string {
-  const object = objectValue(value);
+  const object = asJsonObject(value);
   return typeof object[field] === "string" ? object[field] : "";
 }
 
 function nestedId(value: JsonValue, field: string): string {
-  return stringField(objectValue(value)[field], "id");
+  return stringField(asJsonObject(value)[field], "id");
 }
 
 function entityArgs(
@@ -127,10 +120,7 @@ function resetTurnState(): void {
 }
 
 function emitEvent(event: JsonObject): void {
-  const line = JSON.stringify(event) + "\n";
-  appendToRawLogFile(line);
-  appendToRawOutput(line);
-  processRealtimeStdoutChunk(line);
+  emitParsedStreamLine(JSON.stringify(event) + "\n");
 }
 
 export function normalizeAppServerNotification(
@@ -140,10 +130,10 @@ export function normalizeAppServerNotification(
   if (method === "turn/started") return { type: "turn.started" };
   if (method === "turn/completed") return { type: "turn.completed" };
   if (method === "item/started") {
-    return { type: "item.started", item: objectValue(params.item) };
+    return { type: "item.started", item: asJsonObject(params.item) };
   }
   if (method === "item/completed") {
-    return { type: "item.completed", item: objectValue(params.item) };
+    return { type: "item.completed", item: asJsonObject(params.item) };
   }
   if (
     method === "item/agentMessage/delta" &&
@@ -196,8 +186,8 @@ export function computeTurnUsageDelta(
 }
 
 function turnError(params: JsonObject): string | null {
-  const turn = objectValue(params.turn);
-  const error = objectValue(turn.error);
+  const turn = asJsonObject(params.turn);
+  const error = asJsonObject(turn.error);
   return typeof error.message === "string" ? error.message : null;
 }
 
@@ -265,8 +255,8 @@ function processNotification(
 ): Promise<void> | null {
   lastEventAt = Date.now();
   if (notification.method === "thread/tokenUsage/updated") {
-    const total = objectValue(
-      objectValue(notification.params.tokenUsage).total,
+    const total = asJsonObject(
+      asJsonObject(notification.params.tokenUsage).total,
     );
     // Keep the last known totals on a malformed notification: an empty object
     // here would turn into an all-zeros usage event at finalize.
@@ -275,12 +265,12 @@ function processNotification(
   const event = normalizeAppServerNotification(notification);
   if (event) emitEvent(event);
   if (notification.method === "item/completed") {
-    const item = objectValue(notification.params.item);
+    const item = asJsonObject(notification.params.item);
     const text = getCodexAgentMessageText(item);
     if (text) finalText = text;
   }
   if (notification.method !== "turn/completed") return null;
-  const turn = objectValue(notification.params.turn);
+  const turn = asJsonObject(notification.params.turn);
   const status = typeof turn.status === "string" ? turn.status : "failed";
   lastIdleActivityAt = Date.now();
   if (supervisor.isCancellationInFlight || status === "interrupted") {

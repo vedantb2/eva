@@ -26,13 +26,9 @@ import {
 } from "../config.js";
 import { evaMcpServers } from "../evaMcp.js";
 import { buildClaudeStartupStep } from "../session/claudeSession.js";
-import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
+import { emitParsedStreamLine } from "../parse/streamRouter.js";
 import { updateThinkingStep } from "../parse/canonical.js";
-import {
-  appendToRawLogFile,
-  appendToRawOutput,
-  trimBufferHead,
-} from "../runtime/buffers.js";
+import { appendToRawLogFile, trimBufferHead } from "../runtime/buffers.js";
 import { buildCanUseTool } from "../runtime/pendingQuestion.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import {
@@ -534,10 +530,8 @@ export async function runClaudeSdkAttempt(
         log("runClaudeSdkAttempt: ignored zero-work task notification result");
         continue;
       }
-      appendToRawLogFile(line);
+      emitParsedStreamLine(line);
       attemptOutput = trimBufferHead(attemptOutput + line);
-      appendToRawOutput(line);
-      processRealtimeStdoutChunk(line);
       if (message.type === "result") {
         sawResult = true;
         resultIsError = message.is_error === true;

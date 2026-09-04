@@ -1,5 +1,8 @@
 import { CLAIM_MUTATION, ENTITY_ID } from "../config.js";
-import { callConvexWithRetry } from "../http/convexClient.js";
+import {
+  callConvexWithRetry,
+  unwrapConvexMutationPayload,
+} from "../http/convexClient.js";
 import { callbackState as S } from "./state.js";
 import type { JsonValue } from "../types.js";
 import type { JsonLike, SdkCanUseTool } from "../providers/claudeSdk.js";
@@ -18,14 +21,8 @@ const POLL_INTERVAL_MS = 300;
  * lives under `.value`; falls back to the top level for an unwrapped value.
  */
 function readClaimedAnswer(result: JsonValue): string | null {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload =
-    typeof inner === "object" && inner !== null && !Array.isArray(inner)
-      ? inner
-      : result;
+  const payload = unwrapConvexMutationPayload(result);
+  if (!payload) return null;
   const answer = payload.answer;
   return typeof answer === "string" ? answer : null;
 }

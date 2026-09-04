@@ -21,6 +21,7 @@ import {
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import type { ProviderAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
+import { buildStandardSdkAttemptResult } from "./attemptResult.js";
 
 function readPromptText(): string {
   const prompt = readFileSync("/tmp/design-prompt.txt", "utf8");
@@ -222,16 +223,10 @@ export async function runCodexSdkAttempt(
       ")",
   );
 
-  return {
+  return buildStandardSdkAttemptResult({
     code,
-    terminatedBySignal: false,
     output: attemptOutput,
     timedOutForNoOutput,
     timedOutForMaxRuntime,
-    timedOutForFirstEvent: false,
-    timedOutForFirstAssistant: false,
-    timedOutAfterFirstText: false,
-    timedOutForZombie: false,
-    toolStallErrorMessage: "",
-  };
+  });
 }

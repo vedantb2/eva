@@ -476,6 +476,42 @@ test("SDK attempt failures share recordSdkAttemptFailure", () => {
   }
 });
 
+test("turn completions share buildTurnCompletionPayload", () => {
+  const service = read("callback-src/runtime/completion.ts");
+  expect(service).toContain("export function buildTurnCompletionPayload(");
+  expect(service).toContain("pendingQuestion: S.pendingQuestionData");
+  for (const path of [
+    "callback-src/providers/claudeSdkDaemon.ts",
+    "callback-src/providers/cursorSdkDaemon.ts",
+    "callback-src/index.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should build via the shared helper`).toContain(
+      "buildTurnCompletionPayload(",
+    );
+  }
+});
+
+test("SDK attempts share buildStandardSdkAttemptResult", () => {
+  const helper = read("callback-src/providers/attemptResult.ts");
+  expect(helper).toContain("export function buildStandardSdkAttemptResult(");
+  expect(helper).toContain("timedOutForZombie: false");
+  for (const path of [
+    "callback-src/providers/claudeSdk.ts",
+    "callback-src/providers/codexSdk.ts",
+    "callback-src/providers/cursorSdk.ts",
+    "callback-src/providers/opencodeSdk.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should return via the shared helper`).toContain(
+      "buildStandardSdkAttemptResult(",
+    );
+    expect(source, `${path} re-inlined the attempt tail`).not.toContain(
+      "timedOutForZombie: false",
+    );
+  }
+});
+
 test("deployment status reads share fetchLatestDeploymentStatus", () => {
   const service = read("convex/_github/deploymentSnapshot.ts");
   expect(service).toContain("export async function fetchLatestDeploymentStatus(");

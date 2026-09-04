@@ -30,6 +30,7 @@ import { flushStreaming, setFinalizingState } from "./heartbeats.js";
 import { appendTurnCheckpoint } from "../runtime/turnCheckpoint.js";
 import type {
   JsonObject,
+  JsonValue,
   ProviderAttemptResult,
   ResultEvent,
 } from "../types.js";
@@ -517,6 +518,34 @@ export async function reconcileStreamingAndPersist(): Promise<boolean> {
   if (await setFinalizingState()) return true;
   persistTurnWork();
   return false;
+}
+
+/** Shared success/failure completion envelope. Callers still decide the fields. */
+export function buildTurnCompletionPayload(params: {
+  success: boolean;
+  result: JsonValue;
+  error: string | null;
+  activityLog: string | null;
+  resultEvent?: ResultEvent | null;
+  entityFieldFallback?: string;
+}): JsonObject {
+  return buildEntityMutationArgs(
+    ENTITY_ID_FIELD ?? params.entityFieldFallback,
+    ENTITY_ID,
+    {
+      success: params.success,
+      result: params.result,
+      error: params.error,
+      activityLog: params.activityLog,
+      ...(RUN_ID ? { runId: RUN_ID } : {}),
+      ...(params.resultEvent?.rawResultEvent
+        ? { rawResultEvent: params.resultEvent.rawResultEvent }
+        : {}),
+      ...(S.pendingQuestionData
+        ? { pendingQuestion: S.pendingQuestionData }
+        : {}),
+    },
+  );
 }
 
 /**

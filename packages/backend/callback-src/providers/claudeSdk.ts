@@ -46,6 +46,7 @@ import type {
   SessionMode,
 } from "../types.js";
 import { log, tryParseJson } from "../utils.js";
+import { buildStandardSdkAttemptResult } from "./attemptResult.js";
 import { isZeroWorkTaskNotificationResult } from "./claudeResult.js";
 
 const SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
@@ -639,16 +640,10 @@ export async function runClaudeSdkAttempt(
       (queryErrorMessage ? ", queryError=" + queryErrorMessage : "") +
       ")",
   );
-  return {
+  return buildStandardSdkAttemptResult({
     code,
-    terminatedBySignal: false,
     output: attemptOutput,
     timedOutForNoOutput,
     timedOutForMaxRuntime,
-    timedOutForFirstEvent: false,
-    timedOutForFirstAssistant: false,
-    timedOutAfterFirstText: false,
-    timedOutForZombie: false,
-    toolStallErrorMessage: "",
-  };
+  });
 }

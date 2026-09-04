@@ -46,6 +46,7 @@ import type {
   SessionMode,
 } from "../types.js";
 import { log } from "../utils.js";
+import { buildStandardSdkAttemptResult } from "./attemptResult.js";
 import { resolvePinnedSdkEntry, type JsonLike } from "./claudeSdk.js";
 
 const SDK_PACKAGE = "@cursor/sdk";
@@ -1283,18 +1284,12 @@ export async function runCursorSdkAttempt(
       (attemptErrorMessage ? ", runError=" + attemptErrorMessage : "") +
       ")",
   );
-  return {
+  return buildStandardSdkAttemptResult({
     code,
-    terminatedBySignal: false,
     output: attemptOutput,
     timedOutForNoOutput,
     timedOutForMaxRuntime,
-    timedOutForFirstEvent: false,
-    timedOutForFirstAssistant: false,
-    timedOutAfterFirstText: false,
-    timedOutForZombie: false,
-    toolStallErrorMessage: "",
-  };
+  });
 }
 
 /** User-facing startup copy must say whether this turn resumes or creates. */

@@ -12,7 +12,6 @@ import {
   ENTITY_ID_FIELD,
   MAX_TOTAL_RUNTIME_MS,
   MODEL,
-  RUN_ID,
 } from "../config.js";
 import { evaMcpWorkerHandoffEnv } from "../evaMcp.js";
 import { callConvexWithRetry } from "../http/convexClient.js";
@@ -20,6 +19,7 @@ import { refreshDaemonGithubTokenFromEnv } from "./githubToken.js";
 import { serializeSteps } from "../parse/stepBudget.js";
 import {
   appendDiagnosticTail,
+  buildTurnCompletionPayload,
   deliverCompletionWithMedia,
   drainStreamingAndCompleteSteps,
   extractResultEvent,
@@ -306,20 +306,13 @@ async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {
   await drainStreamingAndCompleteSteps();
   const resultEvent = extractResultEvent(attempt.output);
   const { success, error } = buildTurnCompletion(attempt);
-  const completionArgs: Record<string, string | boolean | null> = {
-    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+  const completionArgs = buildTurnCompletionPayload({
     success,
     result: resultEvent?.result ?? S.rawOutput,
     error,
     activityLog: serializeSteps(S.accumulatedSteps),
-  };
-  if (RUN_ID) completionArgs.runId = RUN_ID;
-  if (resultEvent?.rawResultEvent) {
-    completionArgs.rawResultEvent = resultEvent.rawResultEvent;
-  }
-  if (S.pendingQuestionData) {
-    completionArgs.pendingQuestion = S.pendingQuestionData;
-  }
+    resultEvent,
+  });
   appendClaimedTurnCompletion(completionArgs);
   // Final streaming reconcile BEFORE completion: the completion mutation
   // finalizes the assistant message and the server may dequeue the next turn
@@ -534,14 +527,12 @@ async function executeClaimedTurn(turn: ClaimedTurn): Promise<void> {
     try {
       await drainStreamingAndCompleteSteps();
       if (await reconcileStreamingAndPersist()) return;
-      const completionArgs: Record<string, JsonValue> = {
-        [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+      const completionArgs = buildTurnCompletionPayload({
         success: false,
         result: null,
         error: appendDiagnosticTail(message),
         activityLog: serializeSteps(S.accumulatedSteps),
-        ...(RUN_ID ? { runId: RUN_ID } : {}),
-      };
+      });
       appendClaimedTurnCompletion(completionArgs);
       await deliverCompletionWithMedia(completionArgs);
     } catch {

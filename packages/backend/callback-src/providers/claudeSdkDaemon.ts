@@ -25,6 +25,7 @@ import {
   type HarnessCommandReport,
 } from "../http/convexClient.js";
 import {
+  buildTurnCompletionPayload,
   deliverCompletionWithMedia,
   drainStreamingAndCompleteSteps,
   extractResultEvent,
@@ -33,7 +34,6 @@ import {
   uploadAndAttachSandboxMedia,
 } from "../runtime/completion.js";
 import {
-  flushStreaming,
   runPreflightHeartbeat,
   startStreamingLoops,
   stopStreamingLoops,
@@ -437,20 +437,13 @@ async function finalizeTurn(
   const resultEvent = extractResultEvent(output);
   const activityLog = serializeSteps(S.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
-  const completionArgs: Record<string, JsonValue> = {
-    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+  const completionArgs = buildTurnCompletionPayload({
     success,
     result: resultEvent?.result ?? S.rawOutput,
     error: resultEvent?.isError ? resultEvent.result : null,
     activityLog,
-  };
-  if (RUN_ID) completionArgs.runId = RUN_ID;
-  if (resultEvent?.rawResultEvent) {
-    completionArgs.rawResultEvent = resultEvent.rawResultEvent;
-  }
-  if (S.pendingQuestionData) {
-    completionArgs.pendingQuestion = S.pendingQuestionData;
-  }
+    resultEvent,
+  });
   appendClaimedTurnCompletion(completionArgs);
   // Final streaming reconcile BEFORE completion. The completion mutation
   // finalizes the assistant message, after which the server clears the
@@ -904,10 +897,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
   // synthetic turn has no workflow, so this is the only push it will ever get.
   persistTurnWork();
   try {
-    await flushStreaming();
-    for (const step of S.accumulatedSteps) {
-      step.status = "complete";
-    }
+    await drainStreamingAndCompleteSteps();
     const turnLease = getCurrentTurnLease();
     const completionArgs = entityMutationArgs({
       messageId,
@@ -977,11 +967,8 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   }
   supervisor.beginFinalizing();
   const messageId = turn.messageId;
-  await flushStreaming();
+  await drainStreamingAndCompleteSteps();
   const resultEvent = extractResultEvent(output);
-  for (const step of S.accumulatedSteps) {
-    step.status = "complete";
-  }
   const activityLog = serializeSteps(S.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
   const completionArgs: Record<string, JsonValue> = entityMutationArgs({

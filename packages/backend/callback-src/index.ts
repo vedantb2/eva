@@ -47,6 +47,7 @@ import {
 } from "./runtime/heartbeats.js";
 import {
   appendDiagnosticTail,
+  buildTurnCompletionPayload,
   deliverCompletionWithMedia,
   extractResultEvent,
   hasToolActivity,
@@ -303,20 +304,14 @@ try {
       S.accumulatedSteps.length,
   );
 
-  const completionArgs: JsonObject = {
-    [ENTITY_ID_FIELD ?? "entityId"]: ENTITY_ID ?? "",
+  const completionArgs = buildTurnCompletionPayload({
     success: completionSuccess,
     result: finalResultEvent?.result ?? S.rawOutput,
     error: errorValue,
     activityLog,
-  };
-  if (RUN_ID) completionArgs.runId = RUN_ID;
-  if (finalResultEvent?.rawResultEvent) {
-    completionArgs.rawResultEvent = finalResultEvent.rawResultEvent;
-  }
-  if (S.pendingQuestionData) {
-    completionArgs.pendingQuestion = S.pendingQuestionData;
-  }
+    resultEvent: finalResultEvent,
+    entityFieldFallback: "entityId",
+  });
   appendCurrentTurnLease(completionArgs);
 
   // Durability BEFORE completion: commit + push the turn's work so a VM death

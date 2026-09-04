@@ -23,6 +23,7 @@ import {
 } from "../session/opencodeSession.js";
 import type { ProviderAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
+import { buildStandardSdkAttemptResult } from "./attemptResult.js";
 import { resolvePinnedSdkEntry } from "./claudeSdk.js";
 import {
   ensureOpencodeServer,
@@ -666,16 +667,10 @@ export async function runOpencodeSdkAttempt(
       (attemptErrorMessage ? ", turnError=" + attemptErrorMessage : "") +
       ")",
   );
-  return {
+  return buildStandardSdkAttemptResult({
     code,
-    terminatedBySignal: false,
     output: attemptOutput,
     timedOutForNoOutput,
     timedOutForMaxRuntime,
-    timedOutForFirstEvent: false,
-    timedOutForFirstAssistant: false,
-    timedOutAfterFirstText: false,
-    timedOutForZombie: false,
-    toolStallErrorMessage: "",
-  };
+  });
 }

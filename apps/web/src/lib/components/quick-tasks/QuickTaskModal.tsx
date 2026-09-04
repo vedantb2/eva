@@ -175,8 +175,34 @@ export function QuickTaskModal({
   const createQuickTask = useMutation(api.agentTasks.createQuickTask);
   const saveDraft = useMutation(api.agentTasks.saveDraft);
   const activateDraft = useMutation(api.agentTasks.activateDraft);
-  const removeDraft = useMutation(api.agentTasks.remove);
-  const drafts = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
+  const removeDraft = useMutation(api.agentTasks.remove).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.agentTasks.listDrafts, {
+        repoId: repo._id,
+      });
+      if (current !== undefined) {
+        localStore.setQuery(
+          api.agentTasks.listDrafts,
+          { repoId: repo._id },
+          current.filter((draft) => draft._id !== args.id),
+        );
+      }
+      const count = localStore.getQuery(api.agentTasks.countDrafts, {
+        repoId: repo._id,
+      });
+      if (count !== undefined) {
+        localStore.setQuery(
+          api.agentTasks.countDrafts,
+          { repoId: repo._id },
+          Math.max(0, count - 1),
+        );
+      }
+    },
+  );
+  const draftRows = useQuery(api.agentTasks.listDrafts, { repoId: repo._id });
+  // `remove` only sets `deletedAt`; until listDrafts is deployed with that
+  // index range, the query still returns the row and the trash looks broken.
+  const drafts = draftRows?.filter((draft) => draft.deletedAt === undefined);
 
   const attachments = useTaskAttachments();
   // Files already saved on the open draft, so reopening it keeps them.
@@ -348,10 +374,19 @@ export function QuickTaskModal({
   };
 
   const handleDeleteDraft = async (draftId: Id<"agentTasks">) => {
-    await removeDraft({ id: draftId });
-    setConfirmDeleteId(null);
-    if (activeDraftId === draftId) {
-      resetForm();
+    try {
+      await withMutationToast(
+        removeDraft({ id: draftId }),
+        "Draft deleted",
+        "Couldn't delete draft",
+        "draft-delete",
+      );
+      setConfirmDeleteId(null);
+      if (activeDraftId === draftId) {
+        resetForm();
+      }
+    } catch {
+      return;
     }
   };
 

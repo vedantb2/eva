@@ -14,6 +14,7 @@ import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import { ComposerInputChrome } from "@/lib/components/chat/_components/ComposerInputChrome";
 import { ComposerStash } from "@/lib/components/chat/_components/ComposerStash";
+import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
 import { usePeopleMentionItems } from "@/lib/hooks/usePeopleMentionItems";
 import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
 import {
@@ -84,7 +85,11 @@ interface ChatComposerProps {
   streamingActivity?: string;
   /** Message id of the streaming turn; scopes Tasks-panel dismissal to it. */
   streamingTurnId?: string;
-  /** Optional left-side control on the under-input card (e.g. base branch). */
+  /**
+   * Optional left-side control on the under-input bar (e.g. base branch).
+   * The bar itself always renders so the model picker has a home on every
+   * composer surface; this slot is only the extra leading control.
+   */
   underCardLeading?: React.ReactNode;
   draft?: ChatDraftSeed;
   /** Persist draft in localStorage when no Convex conversation exists yet. */
@@ -274,14 +279,6 @@ export function ChatComposer({
               isExecuting={isExecuting}
               isInputDisabled={isInputDisabled}
               hasPendingContext={hasPendingContext}
-              model={model}
-              setModel={setModel}
-              modelOptions={modelOptions}
-              accounts={accounts}
-              accountId={accountId}
-              onAccountChange={onAccountChange}
-              displayTraits={displayTraits}
-              onTraitsChange={onTraitsChange}
               onPromptSubmit={handlePromptSubmit}
               onCancel={onCancel}
               seedMentionMap={seed?.mentionMap}
@@ -292,11 +289,24 @@ export function ChatComposer({
           </ComposerStash>
         </PromptInputProvider>
       )}
-      {underCardLeading ? (
-        <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center rounded-b-surface bg-muted/70 px-2 py-1.5">
+      <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center rounded-b-surface bg-muted/70 px-2 py-0.5">
+        {underCardLeading ? (
           <div className="min-w-0">{underCardLeading}</div>
+        ) : null}
+        <div className="ml-auto min-w-0 shrink-0">
+          <ModelSelectWithTraits
+            value={model}
+            options={modelOptions}
+            onValueChange={setModel}
+            accounts={accounts}
+            accountId={accountId}
+            onAccountChange={onAccountChange}
+            traits={displayTraits}
+            onTraitsChange={onTraitsChange}
+            className="h-7 w-auto max-w-full justify-start border-0 bg-transparent px-2 text-xs font-normal text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+          />
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

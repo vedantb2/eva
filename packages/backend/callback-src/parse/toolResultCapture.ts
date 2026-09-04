@@ -1,4 +1,5 @@
 import { Option, Schema } from "effect";
+import { NonEmptyText } from "./schemaHelpers.js";
 import type {
   JsonObject,
   JsonValue,
@@ -7,9 +8,6 @@ import type {
   ToolCompleteResult,
 } from "../types.js";
 import { headCap, STEP_FIELD_CAPS, tailCap } from "./stepBudget.js";
-
-/** A string with at least one character (whitespace counts). */
-const NonEmptyStringSchema = Schema.String.pipe(Schema.nonEmptyString());
 
 /** A string with at least one non-whitespace character, kept as written. */
 const NonBlankStringSchema = Schema.String.pipe(
@@ -32,7 +30,7 @@ const OpencodeTimeSchema = Schema.Struct({
 }).pipe(Schema.filter((time) => time.end >= time.start));
 
 const decodeString = Schema.decodeUnknownOption(Schema.String);
-const decodeNonEmptyString = Schema.decodeUnknownOption(NonEmptyStringSchema);
+const decodeNonEmptyString = Schema.decodeUnknownOption(NonEmptyText);
 const decodeNonBlankString = Schema.decodeUnknownOption(NonBlankStringSchema);
 const decodeTrimmedString = Schema.decodeUnknownOption(TrimmedStringSchema);
 const decodeFiniteNumber = Schema.decodeUnknownOption(Schema.Finite);

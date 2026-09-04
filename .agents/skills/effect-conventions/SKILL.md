@@ -117,9 +117,18 @@ version.
 
 Done: (1) tagged sandbox errors + retry schedules, (2) Schema in
 `callback-src/parse/`, (3) git/GitHub failure classifiers, (4) tagged errors
-across the Convex wire. Next: (5) `callback-src/providers/*ParseLine` onto
-Schema. Migration to Effect v4 is deferred until a stable 4.1; the official
-`Effect-TS/skills` repo has an `effect-v3-to-v4` skill for that day.
+across the Convex wire, (5) provider `*ParseLine` parsers on Schema — the
+agent-stream boundary is complete. Shared stream-schema helpers live in
+`callback-src/parse/schemaHelpers.ts` (`lenient`, `Text`, `NonEmptyText`,
+`OptionalText`, `TextArray`); do not redeclare them in a module.
+
+Open follow-ups, by value: `_github/userAuth.ts` ~202 and `prDiff.ts` ~347
+fold a rate-limited 403 into "not authorized" / "blob too large" — use
+`GitHubRateLimited`; a shared tag→tone mapping in the web so
+`GitHubBranchNotAhead` renders informational rather than destructive; more
+actions through `runActionEffect`, chosen by which "Server Error" toasts users
+actually hit. Migration to Effect v4 is deferred until a stable 4.1; the
+official `Effect-TS/skills` repo has an `effect-v3-to-v4` skill for that day.
 
 ## Making an action's failures visible to the user
 

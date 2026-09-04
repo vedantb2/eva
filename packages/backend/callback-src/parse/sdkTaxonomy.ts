@@ -3,39 +3,12 @@ import { callbackState as S } from "../runtime/state.js";
 import { mergeClaudeRateLimitEvent } from "../runtime/usageLimits.js";
 import type { CanonicalEvent, JsonObject } from "../types.js";
 import { log } from "../utils.js";
+import { lenient, OptionalText, Text, TextArray } from "./schemaHelpers.js";
 
 const loggedUnknownKinds = new Set<string>();
 
 /** Task ids seen in prior `background_tasks_changed` payloads (daemon session). */
 const knownBackgroundTaskIds = new Set<string>();
-
-/** Matches any input and decodes to `undefined` — the fallback arm of `lenient`. */
-const Absent = Schema.transform(Schema.Unknown, Schema.Undefined, {
-  strict: true,
-  decode: () => undefined,
-  encode: () => undefined,
-});
-
-/** The decoded value when the input matches, `undefined` when it does not. */
-const lenient = <A, I>(schema: Schema.Schema<A, I>) =>
-  Schema.Union(schema, Absent);
-
-/** Trimmed text, rejecting blanks — stream fields arrive padded or empty. */
-const Text = Schema.Trim.pipe(Schema.nonEmptyString());
-
-const OptionalText = Schema.optional(lenient(Text));
-
-/** Trimmed, non-blank entries; entries of any other shape are dropped. */
-const TextArray = Schema.transform(
-  Schema.Array(lenient(Text)),
-  Schema.Array(Schema.String),
-  {
-    strict: true,
-    decode: (entries) =>
-      entries.flatMap((entry) => (entry === undefined ? [] : [entry])),
-    encode: (entries) => entries,
-  },
-);
 
 /** The `type`/`subtype` pair every SDK message is dispatched on. */
 const SdkEnvelope = Schema.Struct({

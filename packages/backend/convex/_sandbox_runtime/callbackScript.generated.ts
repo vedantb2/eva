@@ -23805,6 +23805,26 @@ var ArrayFormatterIssue = class extends (/* @__PURE__ */ Struct({
 })) {
 };
 
+// callback-src/parse/schemaHelpers.ts
+var Absent = Schema_exports.transform(Schema_exports.Unknown, Schema_exports.Undefined, {
+  strict: true,
+  decode: () => void 0,
+  encode: () => void 0
+});
+var lenient = (schema) => Schema_exports.Union(schema, Absent);
+var Text = Schema_exports.Trim.pipe(Schema_exports.nonEmptyString());
+var NonEmptyText = Schema_exports.String.pipe(Schema_exports.nonEmptyString());
+var OptionalText = Schema_exports.optional(lenient(Text));
+var TextArray = Schema_exports.transform(
+  Schema_exports.Array(lenient(Text)),
+  Schema_exports.Array(Schema_exports.String),
+  {
+    strict: true,
+    decode: (entries2) => entries2.flatMap((entry) => entry === void 0 ? [] : [entry]),
+    encode: (entries2) => entries2
+  }
+);
+
 // callback-src/parse/stepBudget.ts
 var STEP_FIELD_CAPS = {
   command: 600,
@@ -23873,7 +23893,6 @@ function serializeSteps(steps) {
 }
 
 // callback-src/parse/toolResultCapture.ts
-var NonEmptyStringSchema = Schema_exports.String.pipe(Schema_exports.nonEmptyString());
 var NonBlankStringSchema = Schema_exports.String.pipe(
   Schema_exports.filter((value3) => value3.trim().length > 0)
 );
@@ -23887,7 +23906,7 @@ var OpencodeTimeSchema = Schema_exports.Struct({
   end: Schema_exports.Number
 }).pipe(Schema_exports.filter((time) => time.end >= time.start));
 var decodeString = Schema_exports.decodeUnknownOption(Schema_exports.String);
-var decodeNonEmptyString = Schema_exports.decodeUnknownOption(NonEmptyStringSchema);
+var decodeNonEmptyString = Schema_exports.decodeUnknownOption(NonEmptyText);
 var decodeNonBlankString = Schema_exports.decodeUnknownOption(NonBlankStringSchema);
 var decodeTrimmedString = Schema_exports.decodeUnknownOption(TrimmedStringSchema);
 var decodeFiniteNumber = Schema_exports.decodeUnknownOption(Schema_exports.Finite);
@@ -25837,23 +25856,6 @@ async function waitForPendingClaudeUsageReport() {
 // callback-src/parse/sdkTaxonomy.ts
 var loggedUnknownKinds = /* @__PURE__ */ new Set();
 var knownBackgroundTaskIds = /* @__PURE__ */ new Set();
-var Absent = Schema_exports.transform(Schema_exports.Unknown, Schema_exports.Undefined, {
-  strict: true,
-  decode: () => void 0,
-  encode: () => void 0
-});
-var lenient = (schema) => Schema_exports.Union(schema, Absent);
-var Text = Schema_exports.Trim.pipe(Schema_exports.nonEmptyString());
-var OptionalText = Schema_exports.optional(lenient(Text));
-var TextArray = Schema_exports.transform(
-  Schema_exports.Array(lenient(Text)),
-  Schema_exports.Array(Schema_exports.String),
-  {
-    strict: true,
-    decode: (entries2) => entries2.flatMap((entry) => entry === void 0 ? [] : [entry]),
-    encode: (entries2) => entries2
-  }
-);
 var SdkEnvelope = Schema_exports.Struct({
   type: Text,
   subtype: OptionalText
@@ -26196,6 +26198,102 @@ function completeStatusOnNonStatusMessage(event) {
 }
 
 // callback-src/providers/claude.ts
+var TodoStatus = Schema_exports.Literal("in_progress", "completed");
+var TextContentBlock = Schema_exports.Struct({
+  type: Schema_exports.Literal("text"),
+  text: Schema_exports.String
+});
+var ToolResultContent = Schema_exports.transform(
+  Schema_exports.Union(
+    Schema_exports.String,
+    Schema_exports.Array(lenient(Schema_exports.Union(Schema_exports.String, TextContentBlock)))
+  ),
+  Schema_exports.String,
+  {
+    strict: true,
+    decode: (content) => {
+      if (typeof content === "string") return content;
+      let text = "";
+      for (const part of content) {
+        if (part === void 0) continue;
+        text += typeof part === "string" ? part : part.text;
+      }
+      return text;
+    },
+    encode: (text) => text
+  }
+);
+var ToolResultBlock = Schema_exports.Struct({
+  type: Schema_exports.Literal("tool_result"),
+  tool_use_id: TrimmedStringSchema
+});
+var AssistantToolUseBlock = Schema_exports.Struct({
+  type: Schema_exports.Literal("tool_use"),
+  name: Schema_exports.String
+});
+var AssistantThinkingBlock = Schema_exports.Struct({
+  type: Schema_exports.Literal("thinking")
+});
+var AssistantTextBlock = Schema_exports.Struct({ type: Schema_exports.Literal("text") });
+var TodoEntry = Schema_exports.Struct({
+  content: NonEmptyText,
+  status: Schema_exports.optional(lenient(TodoStatus))
+});
+var MessageStartFrame = Schema_exports.Struct({
+  type: Schema_exports.Literal("message_start")
+});
+var ContentBlockStartFrame = Schema_exports.Struct({
+  type: Schema_exports.Literal("content_block_start")
+});
+var TextBlockStartFrame = Schema_exports.Struct({
+  type: Schema_exports.Literal("content_block_start"),
+  content_block: Schema_exports.Struct({ type: Schema_exports.Literal("text") })
+});
+var TextDeltaFrame = Schema_exports.Struct({
+  type: Schema_exports.Literal("content_block_delta"),
+  delta: Schema_exports.Struct({
+    type: Schema_exports.Literal("text_delta"),
+    text: NonEmptyText
+  })
+});
+var ThinkingDeltaFrame = Schema_exports.Struct({
+  type: Schema_exports.Literal("content_block_delta"),
+  delta: Schema_exports.Struct({
+    type: Schema_exports.Literal("thinking_delta"),
+    thinking: NonEmptyText
+  })
+});
+var InitFrame = Schema_exports.Struct({
+  type: Schema_exports.Literal("system"),
+  subtype: Schema_exports.Literal("init"),
+  session_id: TrimmedStringSchema
+});
+var decodeToolResultContent = Schema_exports.decodeUnknownOption(ToolResultContent);
+var decodeToolResultBlock = Schema_exports.decodeUnknownOption(ToolResultBlock);
+var decodeToolUseBlock = Schema_exports.decodeUnknownOption(AssistantToolUseBlock);
+var decodeThinkingBlock = Schema_exports.decodeUnknownOption(AssistantThinkingBlock);
+var decodeTextBlock = Schema_exports.decodeUnknownOption(AssistantTextBlock);
+var decodeTextContentBlock = Schema_exports.decodeUnknownOption(TextContentBlock);
+var decodeTodoEntry = Schema_exports.decodeUnknownOption(TodoEntry);
+var decodeTodoStatus = Schema_exports.decodeUnknownOption(TodoStatus);
+var decodeMessageStart = Schema_exports.decodeUnknownOption(MessageStartFrame);
+var decodeContentBlockStart = Schema_exports.decodeUnknownOption(
+  ContentBlockStartFrame
+);
+var decodeTextBlockStart = Schema_exports.decodeUnknownOption(TextBlockStartFrame);
+var decodeTextDelta = Schema_exports.decodeUnknownOption(TextDeltaFrame);
+var decodeThinkingDelta = Schema_exports.decodeUnknownOption(ThinkingDeltaFrame);
+var decodeInitFrame = Schema_exports.decodeUnknownOption(InitFrame);
+function asJsonObject(value3) {
+  if (value3 === null || typeof value3 !== "object" || Array.isArray(value3)) {
+    return void 0;
+  }
+  return value3;
+}
+function readContentBlocks(message) {
+  const content = message?.content;
+  return Array.isArray(content) ? content : [];
+}
 function claudeToolCompleteResult(resultText, isError) {
   const output = buildStepOutput(resultText);
   if (!output && !isError) {
@@ -26206,36 +26304,33 @@ function claudeToolCompleteResult(resultText, isError) {
     isError: isError ? true : void 0
   };
 }
-function extractToolResultText(content) {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  const parts2 = [];
-  for (const item of content) {
-    if (typeof item === "string") {
-      parts2.push(item);
-      continue;
-    }
-    if (item && typeof item === "object" && !Array.isArray(item) && item.type === "text" && typeof item.text === "string") {
-      parts2.push(item.text);
-    }
+function readToolResultText(source) {
+  return Option_exports.getOrElse(decodeToolResultContent(source.content), () => "");
+}
+function completeToolEvent(toolUseId, resultText, isError) {
+  if (toolUseId) {
+    trackClaudeToolResult(toolUseId, resultText, isError);
   }
-  return parts2.join("");
+  const result = claudeToolCompleteResult(resultText, isError);
+  return result ? { kind: "complete_tool", trackingId: toolUseId, result } : { kind: "complete_tool", trackingId: toolUseId };
 }
 function normalizeTodoStatus(value3) {
-  return value3 === "in_progress" || value3 === "completed" ? value3 : "pending";
+  return Option_exports.getOrElse(decodeTodoStatus(value3), () => "pending");
 }
 function reduceTodoState(name, input) {
   if (name === "TodoWrite") {
     const raw = Array.isArray(input.todos) ? input.todos : [];
     callbackState.todoState.length = 0;
     for (const item of raw) {
-      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-      const content = typeof item.content === "string" ? item.content : "";
-      if (!content) continue;
-      callbackState.todoState.push({ content, status: normalizeTodoStatus(item.status) });
+      const todo = decodeTodoEntry(item);
+      if (Option_exports.isNone(todo)) continue;
+      callbackState.todoState.push({
+        content: todo.value.content,
+        status: todo.value.status ?? "pending"
+      });
     }
   } else if (name === "TaskCreate") {
-    const content = typeof input.subject === "string" ? input.subject : typeof input.description === "string" ? input.description : "";
+    const content = readString(input, ["subject", "description"]) ?? "";
     if (content) {
       callbackState.todoState.push({ content, status: normalizeTodoStatus(input.status) });
     }
@@ -26244,43 +26339,32 @@ function reduceTodoState(name, input) {
     if (last3) {
       if (input.status !== void 0)
         last3.status = normalizeTodoStatus(input.status);
-      if (typeof input.subject === "string" && input.subject) {
-        last3.content = input.subject;
+      const subject = readNonEmptyString(input, ["subject"]);
+      if (subject !== void 0) {
+        last3.content = subject;
       }
     }
   }
   return callbackState.todoState.map((t) => ({ ...t }));
 }
 function parseClaudeStreamEvent(event) {
-  const events = [];
-  const inner = event.event && typeof event.event === "object" && !Array.isArray(event.event) ? event.event : null;
-  if (!inner) return events;
-  if (inner.type === "message_start") {
-    events.push({ kind: "mark_message_start" });
-    return events;
+  const inner = readObject(event, ["event"]);
+  if (!inner) return [];
+  if (Option_exports.isSome(decodeMessageStart(inner))) {
+    return [{ kind: "mark_message_start" }];
   }
-  if (inner.type === "content_block_start") {
-    const contentBlock = inner.content_block && typeof inner.content_block === "object" && !Array.isArray(inner.content_block) ? inner.content_block : null;
-    if (contentBlock && contentBlock.type === "text") {
-      events.push({ kind: "mark_text_block_start" });
-    }
-    return events;
+  if (Option_exports.isSome(decodeContentBlockStart(inner))) {
+    return Option_exports.isSome(decodeTextBlockStart(inner)) ? [{ kind: "mark_text_block_start" }] : [];
   }
-  if (inner.type !== "content_block_delta") return events;
-  const delta = inner.delta && typeof inner.delta === "object" && !Array.isArray(inner.delta) ? inner.delta : null;
-  if (!delta) return events;
-  if (delta.type === "text_delta" && typeof delta.text === "string") {
-    if (delta.text) {
-      events.push({ kind: "stream_text_delta", text: delta.text });
-    }
-    return events;
+  const text = decodeTextDelta(inner);
+  if (Option_exports.isSome(text)) {
+    return [{ kind: "stream_text_delta", text: text.value.delta.text }];
   }
-  if (delta.type === "thinking_delta" && typeof delta.thinking === "string") {
-    if (delta.thinking) {
-      events.push({ kind: "update_reasoning", text: delta.thinking });
-    }
+  const thinking = decodeThinkingDelta(inner);
+  if (Option_exports.isSome(thinking)) {
+    return [{ kind: "update_reasoning", text: thinking.value.delta.thinking }];
   }
-  return events;
+  return [];
 }
 function claudeParseLine(event) {
   if (consumesClaudeSdkTaxonomyMessage(event)) {
@@ -26291,33 +26375,28 @@ function claudeParseLine(event) {
     return parseClaudeStreamEvent(event);
   }
   if (event.type === "tool_result") {
-    const toolUseId = typeof event.tool_use_id === "string" && event.tool_use_id.trim() ? event.tool_use_id.trim() : void 0;
-    const resultText = event.content !== void 0 ? extractToolResultText(event.content) : "";
-    const isError = event.is_error === true;
-    if (toolUseId) {
-      trackClaudeToolResult(toolUseId, resultText, isError);
-    }
-    const result = claudeToolCompleteResult(resultText, isError);
     events.push(
-      result ? { kind: "complete_tool", trackingId: toolUseId, result } : { kind: "complete_tool", trackingId: toolUseId }
+      completeToolEvent(
+        readTrimmedString(event, ["tool_use_id"]),
+        readToolResultText(event),
+        readTrueFlag(event, ["is_error"])
+      )
     );
     return events;
   }
   if (event.type === "user") {
-    const message2 = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
-    const content2 = message2 && Array.isArray(message2.content) ? message2.content : [];
-    for (const block of content2) {
-      if (!block || typeof block !== "object" || Array.isArray(block)) continue;
-      if (block.type === "tool_result" && typeof block.tool_use_id === "string" && block.tool_use_id.trim()) {
-        const toolUseId = block.tool_use_id.trim();
-        const resultText = block.content !== void 0 ? extractToolResultText(block.content) : "";
-        const isError = block.is_error === true;
-        trackClaudeToolResult(toolUseId, resultText, isError);
-        const result = claudeToolCompleteResult(resultText, isError);
-        events.push(
-          result ? { kind: "complete_tool", trackingId: toolUseId, result } : { kind: "complete_tool", trackingId: toolUseId }
-        );
-      }
+    for (const raw of readContentBlocks(readObject(event, ["message"]))) {
+      const block = asJsonObject(raw);
+      if (!block) continue;
+      const resultBlock = decodeToolResultBlock(block);
+      if (Option_exports.isNone(resultBlock)) continue;
+      events.push(
+        completeToolEvent(
+          resultBlock.value.tool_use_id,
+          readToolResultText(block),
+          readTrueFlag(block, ["is_error"])
+        )
+      );
     }
     if (events.length > 0) {
       return events;
@@ -26327,42 +26406,40 @@ function claudeParseLine(event) {
   if (callbackState.waitingForFirstAssistantEvent) {
     events.push({ kind: "mark_first_assistant" });
   }
-  const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
-  const content = message && Array.isArray(message.content) ? message.content : [];
-  const parentToolUseId = typeof event.parent_tool_use_id === "string" && event.parent_tool_use_id.trim() ? event.parent_tool_use_id.trim() : void 0;
-  for (const block of content) {
-    if (!block || typeof block !== "object" || Array.isArray(block)) continue;
-    if (block.type === "tool_use" && typeof block.name === "string") {
-      const input = block.input && typeof block.input === "object" && !Array.isArray(block.input) ? block.input : {};
-      if (block.name === "TodoWrite" || block.name === "TaskCreate" || block.name === "TaskUpdate") {
-        events.push({
-          kind: "set_todos",
-          todos: reduceTodoState(block.name, input)
-        });
+  const parentToolUseId = readTrimmedString(event, ["parent_tool_use_id"]);
+  for (const raw of readContentBlocks(readObject(event, ["message"]))) {
+    const block = asJsonObject(raw);
+    if (!block) continue;
+    const toolUse = decodeToolUseBlock(block);
+    if (Option_exports.isSome(toolUse)) {
+      const name = toolUse.value.name;
+      const input = readObject(block, ["input"]) ?? {};
+      if (name === "TodoWrite" || name === "TaskCreate" || name === "TaskUpdate") {
+        events.push({ kind: "set_todos", todos: reduceTodoState(name, input) });
         continue;
       }
-      if (block.name === "TodoRead" || block.name === "TaskGet" || block.name === "TaskList" || block.name === "ExitPlanMode") {
+      if (name === "TodoRead" || name === "TaskGet" || name === "TaskList" || name === "ExitPlanMode") {
         continue;
       }
-      const step3 = toolCallToStep(block.name, input);
-      const trackingId = typeof block.id === "string" && block.id.trim() ? block.id.trim() : void 0;
+      const step3 = toolCallToStep(name, input);
+      const trackingId = readTrimmedString(block, ["id"]);
       if (trackingId) {
         step3.toolUseId = trackingId;
-        trackClaudeToolUse(block.name, input, trackingId);
+        trackClaudeToolUse(name, input, trackingId);
       }
       if (parentToolUseId) step3.parentToolUseId = parentToolUseId;
       events.push(
         trackingId ? { kind: "push_step", step: step3, trackingId } : { kind: "push_step", step: step3 }
       );
-      if (!BLOCKING_QUESTIONS_ENABLED && block.name === "AskUserQuestion" && block.input) {
+      if (!BLOCKING_QUESTIONS_ENABLED && name === "AskUserQuestion" && block.input) {
         events.push({
           kind: "set_pending_question",
           data: JSON.stringify(block.input)
         });
       }
-    } else if (block.type === "thinking" && "thinking" in block && block.thinking) {
+    } else if (Option_exports.isSome(decodeThinkingBlock(block)) && block.thinking) {
       events.push({ kind: "update_reasoning", text: String(block.thinking) });
-    } else if (block.type === "text" && "text" in block && block.text) {
+    } else if (Option_exports.isSome(decodeTextBlock(block)) && block.text) {
       if (!callbackState.streamedAssistantTextThisMessage) {
         events.push({ kind: "append_text", text: String(block.text) });
       }
@@ -26371,8 +26448,9 @@ function claudeParseLine(event) {
   return events;
 }
 function onStreamLine(parsed) {
-  if (parsed.type === "system" && parsed.subtype === "init" && typeof parsed.session_id === "string" && parsed.session_id.trim()) {
-    callbackState.activeClaudeSessionId = parsed.session_id.trim();
+  const init = decodeInitFrame(parsed);
+  if (Option_exports.isSome(init)) {
+    callbackState.activeClaudeSessionId = init.value.session_id;
     callbackState.claudeInitAt = Date.now();
     callbackState.waitingForFirstAssistantEvent = true;
     log(
@@ -26390,18 +26468,16 @@ function onStreamLine(parsed) {
         "first assistant event after " + String(callbackState.firstAssistantEventAt - callbackState.activeAttemptStartedAt) + "ms"
       );
     }
-    const message = parsed.message && typeof parsed.message === "object" && !Array.isArray(parsed.message) ? parsed.message : null;
-    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
-    for (const block of contentBlocks) {
-      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string") {
-        if (callbackState.firstTextBlockAt === 0) {
-          callbackState.firstTextBlockAt = Date.now();
-          log(
-            "first text block after " + String(callbackState.firstTextBlockAt - callbackState.activeAttemptStartedAt) + "ms chars=" + String(block.text.length)
-          );
-        }
-        break;
+    for (const raw of readContentBlocks(readObject(parsed, ["message"]))) {
+      const block = decodeTextContentBlock(raw);
+      if (Option_exports.isNone(block)) continue;
+      if (callbackState.firstTextBlockAt === 0) {
+        callbackState.firstTextBlockAt = Date.now();
+        log(
+          "first text block after " + String(callbackState.firstTextBlockAt - callbackState.activeAttemptStartedAt) + "ms chars=" + String(block.value.text.length)
+        );
       }
+      break;
     }
     return {};
   }
@@ -26598,6 +26674,32 @@ function prepareCodexSessionState() {
 }
 
 // callback-src/providers/codex.ts
+var AgentMessageDeltaFrame = Schema_exports.Struct({
+  type: Schema_exports.Literal("item.agent_message.delta"),
+  delta: NonEmptyText
+});
+var ReasoningDeltaFrame = Schema_exports.Struct({
+  type: Schema_exports.Literal("item.reasoning.delta"),
+  delta: NonEmptyText
+});
+var AgentMessageItem = Schema_exports.Struct({
+  type: Schema_exports.Literal("agent_message", "agentMessage")
+});
+var ReasoningItem = Schema_exports.Struct({ type: Schema_exports.Literal("reasoning") });
+var ToolItem = Schema_exports.Struct({
+  type: Schema_exports.String.pipe(
+    Schema_exports.filter(
+      (type) => type !== "agent_message" && type !== "agentMessage"
+    )
+  )
+});
+var decodeAgentMessageDelta = Schema_exports.decodeUnknownOption(
+  AgentMessageDeltaFrame
+);
+var decodeReasoningDelta = Schema_exports.decodeUnknownOption(ReasoningDeltaFrame);
+var decodeAgentMessageItem = Schema_exports.decodeUnknownOption(AgentMessageItem);
+var decodeReasoningItem = Schema_exports.decodeUnknownOption(ReasoningItem);
+var decodeToolItem = Schema_exports.decodeUnknownOption(ToolItem);
 function codexParseLine(event) {
   const events = [];
   const threadId = getCodexThreadId(event);
@@ -26618,51 +26720,52 @@ function codexParseLine(event) {
     });
     return events;
   }
-  if (event.type === "item.agent_message.delta" && typeof event.delta === "string" && event.delta) {
-    events.push({ kind: "stream_text_delta", text: event.delta });
+  const agentDelta = decodeAgentMessageDelta(event);
+  if (Option_exports.isSome(agentDelta)) {
+    events.push({ kind: "stream_text_delta", text: agentDelta.value.delta });
     return events;
   }
-  if (event.type === "item.reasoning.delta" && typeof event.delta === "string" && event.delta) {
-    events.push({ kind: "update_reasoning", text: event.delta });
+  const reasoningDelta = decodeReasoningDelta(event);
+  if (Option_exports.isSome(reasoningDelta)) {
+    events.push({
+      kind: "update_reasoning",
+      text: reasoningDelta.value.delta
+    });
     return events;
   }
-  if (event.type === "item.started" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && (event.item.type === "agent_message" || event.item.type === "agentMessage")) {
+  const item = readObject(event, ["item"]);
+  if (event.type === "item.started" && item && Option_exports.isSome(decodeAgentMessageItem(item))) {
     events.push({ kind: "mark_message_start" });
     return events;
   }
-  if ((event.type === "item.started" || event.type === "item.updated" || event.type === "item.completed") && event.item && typeof event.item === "object" && !Array.isArray(event.item) && event.item.type === "reasoning") {
-    if (typeof event.item.text === "string" && event.item.text.trim()) {
-      events.push({ kind: "update_reasoning", text: event.item.text });
+  if ((event.type === "item.started" || event.type === "item.updated" || event.type === "item.completed") && item && Option_exports.isSome(decodeReasoningItem(item))) {
+    const text = readNonBlankString(item, ["text"]);
+    if (text !== void 0) {
+      events.push({ kind: "update_reasoning", text });
     }
     return events;
   }
-  if (event.type === "item.started" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message" && event.item.type !== "agentMessage") {
-    const step3 = codexItemToStep(event.item);
-    const trackingId = step3.type !== "thinking" && typeof event.item.id === "string" ? event.item.id : void 0;
+  if (event.type === "item.started" && item && Option_exports.isSome(decodeToolItem(item))) {
+    const step3 = codexItemToStep(item);
+    const trackingId = step3.type !== "thinking" ? readNonEmptyString(item, ["id"]) : void 0;
     events.push(
       trackingId ? { kind: "push_step", step: step3, trackingId } : { kind: "push_step", step: step3 }
     );
     return events;
   }
-  if (event.type === "item.completed" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && (event.item.type === "agent_message" || event.item.type === "agentMessage")) {
-    const messageText = getCodexAgentMessageText(event.item);
+  if (event.type === "item.completed" && item && Option_exports.isSome(decodeAgentMessageItem(item))) {
+    const messageText = getCodexAgentMessageText(item);
     if (messageText && !callbackState.streamedAssistantTextThisMessage) {
       events.push({ kind: "append_text", text: messageText });
     }
     return events;
   }
-  if ((event.type === "item.completed" || event.type === "item.failed") && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message" && event.item.type !== "agentMessage") {
-    const result = probeCodexItemResult(
-      event.item,
-      event.type === "item.failed"
-    );
-    if (typeof event.item.id === "string") {
+  if ((event.type === "item.completed" || event.type === "item.failed") && item && Option_exports.isSome(decodeToolItem(item))) {
+    const result = probeCodexItemResult(item, event.type === "item.failed");
+    const trackingId = readString(item, ["id"]);
+    if (trackingId !== void 0) {
       events.push(
-        result ? {
-          kind: "complete_tool",
-          trackingId: event.item.id,
-          result
-        } : { kind: "complete_tool", trackingId: event.item.id }
+        result ? { kind: "complete_tool", trackingId, result } : { kind: "complete_tool", trackingId }
       );
     } else if (result) {
       events.push({ kind: "complete_tool", result });
@@ -26736,6 +26839,70 @@ function prepareCursorSessionState() {
 }
 
 // callback-src/providers/cursor.ts
+var PresentValue = Schema_exports.Unknown.pipe(
+  Schema_exports.filter((value3) => value3 !== void 0)
+);
+var CursorEnvelope = Schema_exports.Struct({
+  type: Schema_exports.optional(lenient(Schema_exports.String))
+});
+var SuccessEnvelope = Schema_exports.Struct({
+  status: Schema_exports.Literal("success"),
+  value: PresentValue
+});
+var ErrorEnvelope = Schema_exports.Struct({
+  status: Schema_exports.Literal("error"),
+  error: PresentValue
+});
+var ErrorMessagePayload = Schema_exports.Struct({ message: Text });
+var ValuePayload = Schema_exports.Struct({
+  diffString: Schema_exports.optional(lenient(Text)),
+  executionTime: Schema_exports.optional(lenient(Schema_exports.Finite))
+});
+var AssistantTextBlock2 = Schema_exports.Struct({
+  type: Schema_exports.Literal("text"),
+  text: Schema_exports.String
+});
+var AssistantMessage = Schema_exports.Struct({
+  message: Schema_exports.optional(
+    lenient(
+      Schema_exports.Struct({
+        content: Schema_exports.optional(
+          lenient(Schema_exports.Array(lenient(AssistantTextBlock2)))
+        )
+      })
+    )
+  )
+});
+var ThinkingEvent = Schema_exports.Struct({ text: NonEmptyText });
+var ToolCall = Schema_exports.Struct({
+  call_id: Schema_exports.optional(lenient(Text)),
+  status: Schema_exports.optional(lenient(Schema_exports.String)),
+  name: Schema_exports.optional(lenient(Schema_exports.String))
+});
+var SystemAgentId = Schema_exports.Struct({ agent_id: Text });
+var decodeEnvelope2 = Schema_exports.decodeUnknownOption(CursorEnvelope);
+var decodeSuccessEnvelope = Schema_exports.decodeUnknownOption(SuccessEnvelope);
+var decodeErrorEnvelope = Schema_exports.decodeUnknownOption(ErrorEnvelope);
+var decodeErrorMessagePayload = Schema_exports.decodeUnknownOption(ErrorMessagePayload);
+var decodeValuePayload = Schema_exports.decodeUnknownOption(ValuePayload);
+var decodeAssistantMessage = Schema_exports.decodeUnknownOption(AssistantMessage);
+var decodeThinkingEvent = Schema_exports.decodeUnknownOption(ThinkingEvent);
+var decodeToolCall = Schema_exports.decodeUnknownOption(ToolCall);
+var decodeSystemAgentId = Schema_exports.decodeUnknownOption(SystemAgentId);
+function readEventType(event) {
+  return Option_exports.getOrUndefined(decodeEnvelope2(event))?.type;
+}
+function readAssistantTexts(event) {
+  const fields = Option_exports.getOrElse(
+    decodeAssistantMessage(event),
+    () => ({})
+  );
+  const texts = [];
+  for (const block of fields.message?.content ?? []) {
+    if (block !== void 0) texts.push(block.text);
+  }
+  return texts;
+}
 function probeCursorSdkToolResult(status, result) {
   const eventIsError = status === "error";
   if (result === void 0 || result === null) {
@@ -26744,10 +26911,9 @@ function probeCursorSdkToolResult(status, result) {
   let payload = result;
   let envelopeIsError = false;
   if (typeof result === "object" && !Array.isArray(result)) {
-    const envStatus = typeof result.status === "string" ? result.status : "";
-    if (envStatus === "success" && result.value !== void 0) {
+    if (Option_exports.isSome(decodeSuccessEnvelope(result))) {
       payload = result.value;
-    } else if (envStatus === "error" && result.error !== void 0) {
+    } else if (Option_exports.isSome(decodeErrorEnvelope(result))) {
       payload = result.error;
       envelopeIsError = true;
     }
@@ -26758,20 +26924,25 @@ function probeCursorSdkToolResult(status, result) {
     if (!output && !isError) return void 0;
     return { output, isError: isError ? true : void 0 };
   }
-  if (isError && payload && typeof payload === "object" && !Array.isArray(payload) && typeof payload.message === "string" && payload.message.trim()) {
-    return {
-      output: buildStepOutput(payload.message),
-      isError: true
-    };
+  if (isError) {
+    const named = decodeErrorMessagePayload(payload);
+    if (Option_exports.isSome(named)) {
+      return {
+        output: buildStepOutput(named.value.message),
+        isError: true
+      };
+    }
   }
   const probed = probeToolCompleteResult(payload) ?? {};
-  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-    if (!probed.output && typeof payload.diffString === "string" && payload.diffString.trim()) {
-      probed.output = buildStepOutput(payload.diffString);
-    }
-    if (typeof payload.executionTime === "number" && Number.isFinite(payload.executionTime)) {
-      probed.durationMs = payload.executionTime;
-    }
+  const value3 = Option_exports.getOrElse(
+    decodeValuePayload(payload),
+    () => ({})
+  );
+  if (!probed.output && value3.diffString) {
+    probed.output = buildStepOutput(value3.diffString);
+  }
+  if (value3.executionTime !== void 0) {
+    probed.durationMs = value3.executionTime;
   }
   if (isError) probed.isError = true;
   if (!probed.output && probed.isError === void 0 && !probed.files && probed.durationMs === void 0) {
@@ -26780,10 +26951,14 @@ function probeCursorSdkToolResult(status, result) {
   return probed;
 }
 function cursorToolCallEvents(event) {
-  const callId = typeof event.call_id === "string" && event.call_id.trim() ? event.call_id.trim() : void 0;
-  const status = typeof event.status === "string" ? event.status : "";
-  const name = typeof event.name === "string" ? event.name : "";
-  const args2 = event.args && typeof event.args === "object" && !Array.isArray(event.args) ? event.args : {};
+  const fields = Option_exports.getOrElse(
+    decodeToolCall(event),
+    () => ({})
+  );
+  const callId = fields.call_id;
+  const status = fields.status ?? "";
+  const name = fields.name ?? "";
+  const args2 = readObject(event, ["args"]) ?? {};
   if (status === "running") {
     if (callId && (callbackState.cursorKnownToolIds.has(callId) || callbackState.cursorTerminalToolIds.has(callId))) {
       return [];
@@ -26836,7 +27011,7 @@ var reportedSilentTypes = /* @__PURE__ */ new Set();
 function cursorParseLine(event) {
   const events = cursorEventToCanonical(event);
   if (events.length === 0) {
-    const type = typeof event.type === "string" ? event.type : "(untyped)";
+    const type = readEventType(event) ?? "(untyped)";
     if (!SILENT_EVENT_TYPES.has(type) && !reportedSilentTypes.has(type)) {
       reportedSilentTypes.add(type);
       log(
@@ -26848,7 +27023,8 @@ function cursorParseLine(event) {
 }
 function cursorEventToCanonical(event) {
   const events = [];
-  if (event.type === "system") {
+  const type = readEventType(event);
+  if (type === "system") {
     events.push({
       kind: "update_thinking",
       label: "Cursor agent ready",
@@ -26856,29 +27032,28 @@ function cursorEventToCanonical(event) {
     });
     return events;
   }
-  if (event.type === "assistant") {
-    const message = event.message && typeof event.message === "object" && !Array.isArray(event.message) ? event.message : null;
-    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
-    for (const block of contentBlocks) {
-      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && block.text) {
-        events.push({ kind: "stream_text_delta", text: block.text });
-      }
+  if (type === "assistant") {
+    for (const text of readAssistantTexts(event)) {
+      if (text) events.push({ kind: "stream_text_delta", text });
     }
     return events;
   }
-  if (event.type === "thinking" && typeof event.text === "string" && event.text) {
-    events.push({ kind: "update_reasoning", text: event.text });
+  if (type === "thinking") {
+    const thinking = decodeThinkingEvent(event);
+    if (Option_exports.isSome(thinking)) {
+      events.push({ kind: "update_reasoning", text: thinking.value.text });
+    }
     return events;
   }
-  if (event.type === "tool_call") {
+  if (type === "tool_call") {
     return cursorToolCallEvents(event);
   }
-  if (event.type === "result") {
+  if (type === "result") {
     events.push({ kind: "mark_last_complete" });
     return events;
   }
-  if (typeof event.type === "string") {
-    const compactionPhase = cursorCompactionEventPhase(event.type);
+  if (type !== void 0) {
+    const compactionPhase = cursorCompactionEventPhase(type);
     if (compactionPhase === "started") {
       events.push({
         kind: "update_thinking",
@@ -26899,32 +27074,31 @@ function cursorEventToCanonical(event) {
   return events;
 }
 function onStreamLine3(parsed) {
-  if (parsed.type === "system" && typeof parsed.agent_id === "string" && parsed.agent_id.trim()) {
-    const agentId = parsed.agent_id.trim();
-    if (agentId !== callbackState.activeCursorSessionId) {
-      callbackState.activeCursorSessionId = agentId;
-      writeCursorSessionState();
-      return { needsHeartbeat: true };
-    }
-    return {};
-  }
-  if (parsed.type === "assistant") {
-    if (callbackState.firstAssistantEventAt === 0) callbackState.firstAssistantEventAt = Date.now();
-    const message = parsed.message && typeof parsed.message === "object" && !Array.isArray(parsed.message) ? parsed.message : null;
-    const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
-    for (const block of contentBlocks) {
-      if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && callbackState.firstTextBlockAt === 0) {
-        callbackState.firstTextBlockAt = Date.now();
-        break;
+  const type = readEventType(parsed);
+  if (type === "system") {
+    const system = decodeSystemAgentId(parsed);
+    if (Option_exports.isSome(system)) {
+      const agentId = system.value.agent_id;
+      if (agentId !== callbackState.activeCursorSessionId) {
+        callbackState.activeCursorSessionId = agentId;
+        writeCursorSessionState();
+        return { needsHeartbeat: true };
       }
     }
     return {};
   }
-  if (parsed.type === "tool_call") {
+  if (type === "assistant") {
+    if (callbackState.firstAssistantEventAt === 0) callbackState.firstAssistantEventAt = Date.now();
+    if (callbackState.firstTextBlockAt === 0 && readAssistantTexts(parsed).length > 0) {
+      callbackState.firstTextBlockAt = Date.now();
+    }
+    return {};
+  }
+  if (type === "tool_call") {
     callbackState.firstTextBlockAt = 0;
     return {};
   }
-  if (parsed.type === "result" && !callbackState.resultEventSeen) {
+  if (type === "result" && !callbackState.resultEventSeen) {
     callbackState.resultEventSeen = true;
     syncCursorStateToPersist();
   }
@@ -26999,21 +27173,48 @@ function prepareOpencodeSessionState() {
 }
 
 // callback-src/providers/opencode.ts
+var OpencodeEnvelope = Schema_exports.Struct({
+  type: Schema_exports.optional(lenient(Schema_exports.String))
+});
+var TextPart = Schema_exports.Struct({
+  part: Schema_exports.Struct({ text: NonEmptyText })
+});
+var StepFinishStop = Schema_exports.Struct({
+  part: Schema_exports.Struct({
+    reason: Schema_exports.Literal("stop"),
+    messageID: Schema_exports.optional(lenient(NonEmptyText))
+  })
+});
+var decodeEnvelope3 = Schema_exports.decodeUnknownOption(OpencodeEnvelope);
+var decodeTextPart = Schema_exports.decodeUnknownOption(TextPart);
+var decodeStepFinishStop = Schema_exports.decodeUnknownOption(StepFinishStop);
+function readEventType2(event) {
+  return Option_exports.getOrUndefined(decodeEnvelope3(event))?.type;
+}
 function opencodeParseLine(event) {
   const events = [];
-  if (event.type === "reasoning" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {
-    events.push({ kind: "update_reasoning", text: event.part.text });
+  const type = readEventType2(event);
+  if (type === "reasoning") {
+    const part = decodeTextPart(event);
+    if (Option_exports.isSome(part)) {
+      events.push({ kind: "update_reasoning", text: part.value.part.text });
+    }
     return events;
   }
-  if (event.type === "text" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {
-    events.push({ kind: "append_text", text: event.part.text });
+  if (type === "text") {
+    const part = decodeTextPart(event);
+    if (Option_exports.isSome(part)) {
+      events.push({ kind: "append_text", text: part.value.part.text });
+    }
     return events;
   }
-  if (event.type === "tool_use" && event.part && typeof event.part === "object" && !Array.isArray(event.part)) {
-    const state = "state" in event.part && event.part.state && typeof event.part.state === "object" && !Array.isArray(event.part.state) ? event.part.state : {};
-    const status = typeof state.status === "string" ? state.status : "";
+  if (type === "tool_use") {
+    const part = readObject(event, ["part"]);
+    if (!part) return events;
+    const state = readObject(part, ["state"]) ?? {};
+    const status = readString(state, ["status"]) ?? "";
     if (status === "running") {
-      const step3 = opencodeToolToStep(event.part);
+      const step3 = opencodeToolToStep(part);
       const trackingId = step3.toolUseId;
       events.push(
         trackingId ? { kind: "push_step", step: step3, trackingId } : { kind: "push_step", step: step3 }
@@ -27021,7 +27222,7 @@ function opencodeParseLine(event) {
       return events;
     }
     if (status === "completed" || status === "error") {
-      const step3 = opencodeToolToStep(event.part);
+      const step3 = opencodeToolToStep(part);
       const result = probeOpencodeStateResult(state);
       events.push(
         result ? {
@@ -27034,9 +27235,8 @@ function opencodeParseLine(event) {
     }
     return events;
   }
-  if (event.type === "step_finish") {
-    const reason = event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.reason === "string" ? event.part.reason : "";
-    if (reason === "stop") {
+  if (type === "step_finish") {
+    if (Option_exports.isSome(decodeStepFinishStop(event))) {
       events.push({ kind: "mark_last_complete" });
     }
     return events;
@@ -27044,29 +27244,34 @@ function opencodeParseLine(event) {
   return events;
 }
 function onStreamLine4(parsed) {
-  const sessionID = typeof parsed.sessionID === "string" && parsed.sessionID.trim() ? parsed.sessionID.trim() : "";
+  const sessionID = readTrimmedString(parsed, ["sessionID"]) ?? "";
   let needsHeartbeat = false;
   if (sessionID && sessionID !== callbackState.activeOpencodeSessionId) {
     callbackState.activeOpencodeSessionId = sessionID;
     writeOpencodeSessionState();
     needsHeartbeat = true;
   }
-  if (parsed.type === "step_start") {
+  const type = readEventType2(parsed);
+  if (type === "step_start") {
     if (callbackState.firstAssistantEventAt === 0) {
       callbackState.firstAssistantEventAt = Date.now();
     }
   }
-  if (parsed.type === "text" && parsed.part && typeof parsed.part === "object" && !Array.isArray(parsed.part) && typeof parsed.part.text === "string" && parsed.part.text) {
+  if (type === "text" && Option_exports.isSome(decodeTextPart(parsed))) {
     if (callbackState.firstTextBlockAt === 0) {
       callbackState.firstTextBlockAt = Date.now();
     }
   }
-  if (parsed.type === "step_finish" && parsed.part && typeof parsed.part === "object" && !Array.isArray(parsed.part) && parsed.part.reason === "stop" && !callbackState.resultEventSeen) {
-    if (typeof parsed.part.messageID === "string" && parsed.part.messageID) {
-      callbackState.opencodeFinalMessageId = parsed.part.messageID;
+  if (type === "step_finish" && !callbackState.resultEventSeen) {
+    const stop = decodeStepFinishStop(parsed);
+    if (Option_exports.isSome(stop)) {
+      const messageId = stop.value.part.messageID;
+      if (messageId !== void 0) {
+        callbackState.opencodeFinalMessageId = messageId;
+      }
+      callbackState.resultEventSeen = true;
+      syncOpencodeStateToPersist();
     }
-    callbackState.resultEventSeen = true;
-    syncOpencodeStateToPersist();
   }
   return needsHeartbeat ? { needsHeartbeat: true } : {};
 }
@@ -28499,7 +28704,9 @@ function readClaimedTurn(result) {
     throw new Error("Durable claimed turn did not include a lease identity");
   }
   if (lifecycle === "legacy" && turnLease !== null) {
-    throw new Error("Legacy claimed turn unexpectedly included a lease identity");
+    throw new Error(
+      "Legacy claimed turn unexpectedly included a lease identity"
+    );
   }
   if (turnLease !== null) {
     return {
@@ -28520,7 +28727,9 @@ function readClaimedTurn(result) {
 }
 function startClaimedTurn(turn) {
   if (claimedTurnLifecycleStatus() === "active") {
-    throw new Error("Cannot start a claimed turn while another claim is active");
+    throw new Error(
+      "Cannot start a claimed turn while another claim is active"
+    );
   }
   beginTurnOwnership("claim", turn.turnLease);
   beginTurnCheckpoint();

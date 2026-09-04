@@ -77,6 +77,11 @@ import {
   getCurrentTurnLease,
 } from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
+import {
+  callbackBundleWentStale,
+  pidAlive,
+  sleep,
+} from "../runtime/daemonProcess.js";
 import { ensureGithubToken } from "./githubToken.js";
 import type { JsonObject, JsonValue } from "../types.js";
 import { DaemonSupervisor } from "../runtime/daemonSupervisor.js";
@@ -95,20 +100,6 @@ import {
   type ClaimedTurn,
 } from "./claimedTurnLifecycle.js";
 import { isZeroWorkTaskNotificationResult } from "./claudeResult.js";
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** True when `pid` refers to a live process this user can signal. */
-function pidAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /** Reads the entity daemon pidfile; NaN when missing or unreadable. */
 function readDaemonPidFile(): number {
@@ -1537,13 +1528,7 @@ function createWarmAgentRunner(
  * running — exit cleanly so the next prewarm can spawn with fresh code.
  */
 function callbackScriptWentStaleOnDisk(): boolean {
-  if (!CALLBACK_SCRIPT_FP) return false;
-  try {
-    const onDisk = readFileSync("/tmp/eva-callback-fp", "utf8").trim();
-    return onDisk !== CALLBACK_SCRIPT_FP;
-  } catch {
-    return false;
-  }
+  return callbackBundleWentStale(CALLBACK_SCRIPT_FP);
 }
 
 /**

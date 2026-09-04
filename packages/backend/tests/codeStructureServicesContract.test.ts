@@ -86,3 +86,156 @@ test("public Convex URL resolution is shared", () => {
   expect(mcp).toContain("resolvePublicConvexCloudUrl(");
   expect(launch).not.toContain("EVA_PUBLIC_CONVEX_URL ?? requireEnv");
 });
+
+test("PR number parsing lives only in prUrl.ts", () => {
+  const service = read("convex/_github/prUrl.ts");
+  expect(service).toContain("export function extractPrNumber(");
+  for (const path of [
+    "convex/_projects/prSync.ts",
+    "convex/_agentTasks/mutations.ts",
+    "convex/_sessions/prArchive.ts",
+    "convex/taskWorkflowActions.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should import the shared parser`).toMatch(
+      /extractPrNumber(FromUrl)?/,
+    );
+    expect(source, `${path} re-inlined the PR URL regex`).not.toContain(
+      "prUrl.match(/\\/pull\\/(\\d+)/)",
+    );
+  }
+});
+
+test("PR lifecycle scheduling is shared", () => {
+  const service = read("convex/_github/prLifecycleActions.ts");
+  expect(service).toContain("export async function schedulePrLifecycleActions(");
+  expect(service).toContain("export function selectPrLifecycleTransition(");
+  for (const path of [
+    "convex/_projects/prSync.ts",
+    "convex/_agentTasks/mutations.ts",
+    "convex/_sessions/prArchive.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should call the shared scheduler`).toContain(
+      "schedulePrLifecycleActions(",
+    );
+    expect(
+      source,
+      `${path} re-inlined taskWorkflowActions.closePullRequest`,
+    ).not.toContain("internal.taskWorkflowActions.closePullRequest");
+  }
+});
+
+test("PR draft-state GraphQL lives only in pullRequestDraftState.ts", () => {
+  const service = read("convex/_github/pullRequestDraftState.ts");
+  expect(service).toContain("export async function convertPullRequestToDraft(");
+  expect(service).toContain(
+    "export async function markPullRequestReadyForReview(",
+  );
+  const actions = read("convex/taskWorkflowActions.ts");
+  expect(actions).toContain("convertPullRequestToDraft(");
+  expect(actions).toContain("markPullRequestReadyForReview(");
+  expect(actions).toContain("syncPullRequestDraftState(");
+  expect(actions).not.toContain("convertPullRequestToDraft(input:");
+  expect(actions).not.toContain("markPullRequestReadyForReview(input:");
+});
+
+test("PR create/wait helpers live in pullRequestWrite.ts", () => {
+  const service = read("convex/_github/pullRequestWrite.ts");
+  expect(service).toContain("export async function createPullRequestWithGitHub(");
+  expect(service).toContain("export async function waitForPullRequestHead(");
+  const actions = read("convex/taskWorkflowActions.ts");
+  expect(actions).toContain("createPullRequestWithGitHub(");
+  expect(actions).toContain("refreshPullRequestBodyWithGitHub(");
+  expect(actions).not.toContain("async function waitForPullRequestHead(");
+});
+
+test("repo and team env-var documents share documentStore", () => {
+  const store = read("convex/_envVars/documentStore.ts");
+  expect(store).toContain("export function upsertEnvVarEntry(");
+  expect(store).toContain("export function sandboxEligibleEnvVars(");
+  for (const path of [
+    "convex/repoEnvVars.ts",
+    "convex/teamEnvVars.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should use upsertEnvVarEntry`).toContain(
+      "upsertEnvVarEntry(",
+    );
+    expect(source, `${path} re-inlined the filter/push upsert`).not.toContain(
+      "vars.filter((entry) => entry.key !== args.key)",
+    );
+  }
+});
+
+test("encrypted credential reveal/map is shared", () => {
+  const service = read("convex/_envVars/encryptedEntries.ts");
+  expect(service).toContain("export function decryptStoredEntry(");
+  expect(service).toContain("export function decryptCredentialMap(");
+  expect(read("convex/repoEnvVarsActions.ts")).toContain("decryptStoredEntry(");
+  expect(read("convex/teamEnvVarsActions.ts")).toContain("decryptStoredEntry(");
+  expect(read("convex/userProviderAccountsActions.ts")).toContain(
+    "decryptStoredEntry(",
+  );
+  expect(read("convex/envVarResolver.ts")).toContain("decryptCredentialMap(");
+  expect(read("convex/envVarResolver.ts")).not.toContain("decryptValue(");
+});
+
+test("storage URL+metadata resolution is shared", () => {
+  const helper = read("convex/_chat/storageUrls.ts");
+  expect(helper).toContain("export async function resolveStorageEntries<");
+  for (const path of [
+    "convex/messages.ts",
+    "convex/_agentTasks/queries.ts",
+    "convex/promptStash.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should call resolveStorageEntries`).toContain(
+      "resolveStorageEntries(",
+    );
+    expect(source, `${path} re-inlined getUrl+getMetadata`).not.toContain(
+      "const [url, meta] = await Promise.all",
+    );
+  }
+});
+
+test("dockerd bootstrap commands are shared", () => {
+  const service = read("convex/_sandbox_runtime/dockerBootstrap.ts");
+  expect(service).toContain("export function buildDockerInfoWaitLoop(");
+  expect(service).toContain("export function buildSeedRunDockerStartCommand(");
+  const helpers = read("convex/_sandbox_runtime/helpers.ts");
+  const snapshot = read("convex/snapshotActions.ts");
+  expect(helpers).toContain("buildDockerInfoWaitLoop(");
+  expect(helpers).toContain("buildDockerdStaleRuntimeCleanup(");
+  expect(snapshot).toContain("buildSeedRunDockerStartCommand(");
+  expect(helpers).not.toContain(
+    "sudo rm -f /var/run/docker.pid /var/run/docker.sock",
+  );
+  expect(snapshot).not.toContain(
+    "sudo setsid dockerd </dev/null >/tmp/dockerd.log",
+  );
+});
+
+test("callback daemons share sleep/pidAlive/stale-bundle checks", () => {
+  const service = read("callback-src/runtime/daemonProcess.ts");
+  expect(service).toContain("export function sleep(");
+  expect(service).toContain("export function pidAlive(");
+  expect(service).toContain("export function callbackBundleWentStale(");
+  for (const path of [
+    "callback-src/providers/claudeSdkDaemon.ts",
+    "callback-src/providers/cursorSdkDaemon.ts",
+    "callback-src/providers/codexAppServerDaemon.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should import daemonProcess`).toContain(
+      "daemonProcess.js",
+    );
+    expect(source, `${path} re-inlined pidAlive`).not.toContain(
+      "function pidAlive(",
+    );
+    expect(source, `${path} re-inlined sleep`).not.toContain("function sleep(");
+    expect(source, `${path} re-inlined the fingerprint read`).not.toContain(
+      "/tmp/eva-callback-fp",
+    );
+  }
+});

@@ -4,15 +4,13 @@ import { callbackState as S } from "./state.js";
 import type { JsonValue } from "../types.js";
 import type { JsonLike, SdkCanUseTool } from "../providers/claudeSdk.js";
 import { log } from "../utils.js";
+import { sleep } from "./daemonProcess.js";
 
 // How often the paused turn polls Convex for the user's answer. Matches the
 // daemon's turn-claim cadence — the model is idle while waiting, so this only
 // adds at most one poll of latency once the answer lands.
 const POLL_INTERVAL_MS = 300;
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /**
  * Reads `.value.answer` (a JSON string, or null) out of a claimAnswer result.

@@ -46,6 +46,11 @@ import {
 } from "../session/cursorSession.js";
 import type { JsonValue, ProviderAttemptResult } from "../types.js";
 import { log } from "../utils.js";
+import {
+  callbackBundleWentStale,
+  pidAlive,
+  sleep,
+} from "../runtime/daemonProcess.js";
 import { readCancelRequested } from "./claimPendingTurnParse.js";
 import {
   appendClaimedTurnCompletion,
@@ -107,9 +112,6 @@ export type CursorTurnWorkerExit =
   | { status: "exited"; code: number | null; signal: NodeJS.Signals | null }
   | { status: "spawn_error"; message: string };
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function cursorTurnWorkerEntryPath(): string {
   const entryPath = process.argv[1];
@@ -254,14 +256,6 @@ function spawnCursorTurnWorker(
   return child;
 }
 
-function pidAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function readDaemonPidFile(): number {
   try {
@@ -283,14 +277,7 @@ function entityMutationArgs(
  * next prewarm spawns with fresh code — a refresh must never lose a turn.
  */
 function callbackScriptWentStaleOnDisk(): boolean {
-  if (!CALLBACK_SCRIPT_FP) return false;
-  try {
-    return (
-      readFileSync("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP
-    );
-  } catch {
-    return false;
-  }
+  return callbackBundleWentStale(CALLBACK_SCRIPT_FP);
 }
 
 /** Clears the per-turn accumulators so the next turn starts clean. */

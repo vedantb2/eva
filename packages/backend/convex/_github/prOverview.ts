@@ -9,6 +9,7 @@ import { invalidatePrHeaderCache } from "./pullRequests";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getActionRepoWithAccess } from "../functions";
+import { patchPullRequest } from "./pullRequestWrite";
 
 const MAX_ISSUE_COMMENTS = 100;
 const MAX_REVIEW_COMMENTS = 100;
@@ -665,14 +666,19 @@ export const updatePullRequest = action({
     if (!repo) throw new Error("Repo not found");
 
     const octokit = await getInstallationOctokit(repo.installationId);
-    const { data } = await octokit.rest.pulls.update({
-      owner: repo.owner,
-      repo: repo.name,
-      pull_number: args.prNumber,
-      ...(title === undefined ? {} : { title }),
-      ...(args.body === undefined ? {} : { body: args.body }),
-      ...(args.state === undefined ? {} : { state: args.state }),
-    });
+    const data = await patchPullRequest(
+      octokit,
+      {
+        owner: repo.owner,
+        repo: repo.name,
+        pull_number: args.prNumber,
+      },
+      {
+        ...(title === undefined ? {} : { title }),
+        ...(args.body === undefined ? {} : { body: args.body }),
+        ...(args.state === undefined ? {} : { state: args.state }),
+      },
+    );
 
     await invalidatePrOverviewCache(ctx, {
       repoId: args.repoId,

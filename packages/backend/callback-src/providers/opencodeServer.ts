@@ -16,6 +16,7 @@ import {
   opencodeCommand,
 } from "../config.js";
 import { log, tryParseJson } from "../utils.js";
+import { sleep } from "../runtime/daemonProcess.js";
 
 /**
  * Eva-managed `opencode serve` process — one healthy HTTP server per sandbox,
@@ -50,9 +51,6 @@ const LOG_TAIL_BYTES = 4_000;
 const opencodeServerBaseUrl =
   "http://127.0.0.1:" + String(OPENCODE_SERVER_PORT);
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /** Tail of the detached server's stdout+stderr, for failure diagnostics. */
 export function readOpencodeServerLogTail(

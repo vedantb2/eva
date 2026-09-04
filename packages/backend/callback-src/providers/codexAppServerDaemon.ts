@@ -46,6 +46,11 @@ import {
 } from "../session/codexSession.js";
 import type { JsonObject, JsonValue, SessionMode } from "../types.js";
 import { attemptElapsedMs, log } from "../utils.js";
+import {
+  callbackBundleWentStale,
+  pidAlive,
+  sleep,
+} from "../runtime/daemonProcess.js";
 import { readCancelRequested } from "./claimPendingTurnParse.js";
 import {
   appendClaimedTurnCompletion,
@@ -84,9 +89,6 @@ let exitWithError = false;
 let threadTotalUsage: JsonObject | null = null;
 let turnStartUsage: JsonObject | null = null;
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function objectValue(value: JsonValue | undefined): JsonObject {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -109,14 +111,6 @@ function entityArgs(
   return { [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "", ...fields };
 }
 
-function pidAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function readOwnerPid(): number {
   try {
@@ -127,14 +121,7 @@ function readOwnerPid(): number {
 }
 
 function callbackWentStale(): boolean {
-  if (!CALLBACK_SCRIPT_FP) return false;
-  try {
-    return (
-      readFileSync("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP
-    );
-  } catch {
-    return false;
-  }
+  return callbackBundleWentStale(CALLBACK_SCRIPT_FP);
 }
 
 function resetTurnState(): void {

@@ -4,34 +4,27 @@ import type { Id } from "@eva/backend";
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
   LoadingState,
   cn,
-  toast,
 } from "@eva/ui";
-import {
-  IconArchive,
-  IconClipboard,
-  IconCopy,
-  IconExternalLink,
-  IconGitBranch,
-  IconGitPullRequest,
-  IconLink,
-  IconPencil,
-  IconX,
-} from "@tabler/icons-react";
+import { IconGitPullRequest, IconX } from "@tabler/icons-react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
 import { SessionHoverCardBody } from "@/lib/components/sidebar/SidebarListHoverCard";
+import { TitleRegeneratingHint } from "@/lib/components/sidebar/SidebarSessionItem";
+import {
+  SessionMenuItems,
+  useIsRegeneratingTitle,
+} from "@/lib/components/sidebar/SessionMenuItems";
 import type { TabGroupColor } from "@/lib/components/sidebar/session-tabs/tabGroupColors";
+import { skipConfirmTitle } from "@/lib/confirm";
 
 /**
  * Width a tab asks for before the strip starts squeezing, in rem. The tab row
@@ -40,11 +33,12 @@ import type { TabGroupColor } from "@/lib/components/sidebar/session-tabs/tabGro
  */
 export const TAB_PREFERRED_WIDTH_REM = 14;
 
-export interface ChromeTabSession {
+interface ChromeTabSession {
   _id: Id<"sessions">;
   _creationTime: number;
   numId?: number;
   title: string;
+  titleRegeneration?: { startedAt: number };
   status: SandboxStatus;
   isExecuting?: boolean;
   userId: Id<"users">;
@@ -110,6 +104,7 @@ export function SessionChromeTab({
   onDuplicateNavigate,
 }: SessionChromeTabProps) {
   const statusStyle = SANDBOX_STATUS_STYLES[session.status];
+  const isRegeneratingTitle = useIsRegeneratingTitle(session);
 
   // Longer open delay than the house default on purpose: tabs sit shoulder to
   // shoulder, so the pointer crosses several on its way to the one it wants.
@@ -208,6 +203,10 @@ export function SessionChromeTab({
                 <span className="min-w-0 flex-1 truncate font-medium [@container(max-width:4.5rem)]:hidden">
                   {session.title}
                 </span>
+                <TitleRegeneratingHint
+                  show={isRegeneratingTitle}
+                  className="[@container(max-width:11rem)]:hidden"
+                />
                 {session.prUrl ? (
                   <IconGitPullRequest
                     size={14}
@@ -221,7 +220,7 @@ export function SessionChromeTab({
               <button
                 type="button"
                 aria-label={`Archive ${session.title}`}
-                title="Archive session"
+                title={skipConfirmTitle("Archive session")}
                 className={cn(
                   // `motion-press` rather than the hand-rolled
                   // `transition-[color,background-color,opacity]`: archiving is
@@ -252,67 +251,15 @@ export function SessionChromeTab({
           </HoverCardTrigger>
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-          <ContextMenuItem onSelect={onRenameRequest}>
-            <IconPencil size={16} />
-            Rename
-          </ContextMenuItem>
-          <ContextMenuItem
-            onSelect={() => {
-              void onDuplicate().then((segment) => {
-                onDuplicateNavigate(segment);
-              });
-            }}
-          >
-            <IconCopy size={16} />
-            Duplicate
-          </ContextMenuItem>
-          <ContextMenuItem
-            onSelect={() => {
-              void navigator.clipboard.writeText(session.title);
-            }}
-          >
-            <IconClipboard size={16} />
-            Copy title
-          </ContextMenuItem>
-          <ContextMenuItem
-            onSelect={() => {
-              void navigator.clipboard.writeText(window.location.origin + href);
-            }}
-          >
-            <IconLink size={16} />
-            Copy link
-          </ContextMenuItem>
-          {session.branchName ? (
-            <ContextMenuItem
-              onSelect={() => {
-                const branchName = session.branchName;
-                if (!branchName) return;
-                void navigator.clipboard.writeText(branchName).then(() => {
-                  toast.success("Branch name copied");
-                });
-              }}
-            >
-              <IconGitBranch size={16} />
-              Copy branch name
-            </ContextMenuItem>
-          ) : null}
-          {session.prUrl ? (
-            <ContextMenuItem
-              onSelect={() => {
-                const prUrl = session.prUrl;
-                if (!prUrl) return;
-                window.open(prUrl, "_blank", "noopener,noreferrer");
-              }}
-            >
-              <IconExternalLink size={16} />
-              Open PR
-            </ContextMenuItem>
-          ) : null}
-          <ContextMenuSeparator />
-          <ContextMenuItem className="text-warning" onSelect={onArchiveRequest}>
-            <IconArchive size={16} />
-            Archive
-          </ContextMenuItem>
+          <SessionMenuItems
+            session={session}
+            href={href}
+            isRegeneratingTitle={isRegeneratingTitle}
+            onRenameRequest={onRenameRequest}
+            onDuplicate={onDuplicate}
+            onDuplicateNavigate={onDuplicateNavigate}
+            onArchiveRequest={onArchiveRequest}
+          />
         </ContextMenuContent>
       </ContextMenu>
       <HoverCardContent

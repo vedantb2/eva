@@ -52,6 +52,8 @@ interface SandboxPaneSlotsProps {
   isSandboxStarting?: boolean;
   /** Session-only: preview select-element → chat submit. */
   onAnnotationSubmit?: (display: string, full: string) => Promise<void>;
+  /** Session-only: the visible preview may float into the mini-player. */
+  miniPlayer?: { sessionId: Id<"sessions">; returnTo: string; title: string };
   /** Session sticky Preview path from Convex. */
   stickyPreviewPath?: string;
   onStickyPreviewPathChange?: (path: string) => void;
@@ -86,6 +88,7 @@ export function SandboxPaneSlots({
   onStartSandbox,
   isSandboxStarting,
   onAnnotationSubmit,
+  miniPlayer,
   stickyPreviewPath,
   onStickyPreviewPathChange,
   stickyTerminalHistoryTail,
@@ -160,6 +163,11 @@ export function SandboxPaneSlots({
               onStartSandbox={onStartSandbox}
               isSandboxStarting={isSandboxStarting}
               onAnnotationSubmit={onAnnotationSubmit}
+              miniPlayer={
+                resolvedTab === "preview" && resolvedPreviewActive === id
+                  ? miniPlayer
+                  : undefined
+              }
             />
           </div>
         ))}

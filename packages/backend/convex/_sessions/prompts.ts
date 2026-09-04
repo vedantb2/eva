@@ -5,7 +5,6 @@ import {
   RESPONSE_LENGTH_INSTRUCTION,
 } from "../prompts";
 import { stripMentionTokens } from "../_mentions/resolveDocMentions";
-
 /**
  * Session chat no longer injects this block: Cursor resumes one agent and the
  * SDK compacts in place. The helper remains for tests and any caller that
@@ -105,6 +104,59 @@ export function buildSessionHandoff(history: HandoffMessage[]): string {
   return handoffLines(entries, head, tail).join("\n\n");
 }
 
+type DigestMessage = { role: string; content: string; isSystemAlert?: boolean };
+type DigestOptions = { totalBudget: number; entryCap: number };
+
+const TITLE_DIGEST_DEFAULTS: DigestOptions = {
+  totalBudget: 8_000,
+  entryCap: 1_200,
+};
+
+/**
+ * Builds a chronological conversation digest for re-titling a session. The
+ * first user message is always kept (it states the original ask); the rest is
+ * filled newest-first until the character budget is spent, so a long session
+ * reads as "what was asked" plus "where it ended up". System alerts and empty
+ * rows are skipped; every entry is capped.
+ */
+export function buildTitleDigest(
+  messages: DigestMessage[],
+  opts: DigestOptions = TITLE_DIGEST_DEFAULTS,
+): string {
+  const entries: HandoffEntry[] = [];
+  for (const message of messages) {
+    if (message.isSystemAlert === true) continue;
+    const text = stripMentionTokens(message.content)
+      .slice(0, opts.entryCap)
+      .trim();
+    if (!text) continue;
+    const isUser = message.role === "user";
+    entries.push({ isUser, line: `${isUser ? "USER" : "ASSISTANT"}: ${text}` });
+  }
+
+  const pinnedIndex = entries.findIndex((entry) => entry.isUser);
+  const kept = new Set<number>();
+  let used = 0;
+  if (pinnedIndex !== -1) {
+    kept.add(pinnedIndex);
+    used = entries[pinnedIndex].line.length;
+  }
+
+  // Newest first: the tail of the conversation says what the work became.
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    if (kept.has(index)) continue;
+    const cost = entries[index].line.length + (kept.size > 0 ? 2 : 0);
+    if (used + cost > opts.totalBudget) break;
+    kept.add(index);
+    used += cost;
+  }
+
+  return entries
+    .filter((_, index) => kept.has(index))
+    .map((entry) => entry.line)
+    .join("\n\n");
+}
+
 /**
  * Turn prompt for the master ("orchestrator") session — Manager Ave.
  *
@@ -164,8 +216,10 @@ export function buildEditPrompt(
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const baseBranch = repo.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+  // Task/project chat reuse this helper and pass spec/description as planContent.
+  // Sessions pass "" — leftover plan.md must not become an "Approved plan" block.
   const planContext = planContent
-    ? `\n\nApproved plan:\n${planContent}\n\nFollow this plan when implementing.`
+    ? `\n\nContext:\n${planContent}`
     : "";
   const handoff = buildSessionHandoff(conversationHistory);
   const conversationContext = handoff

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ActivityTasks,
   Reasoning,
@@ -17,6 +17,11 @@ import {
 } from "@eva/shared/parseActivitySteps";
 import { formatDuration } from "@eva/shared/duration";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
+import {
+  thinkingHeartbeatLabel,
+  thinkingHeartbeatSeconds,
+  visibleActivityKey,
+} from "@/lib/components/streamingActivityHeartbeat";
 
 /**
  * How long an empty-but-live activity payload is treated as ordinary startup
@@ -41,6 +46,39 @@ function SimpleViewWorkingStatus({ startedAt }: { startedAt?: number }) {
   );
 }
 
+/**
+ * Clock of last *visible* work. Reasoning-token updates leave this alone so
+ * a long think still heartbeats instead of looking like a hang.
+ */
+function useLastVisibleOutputAt(
+  activity: string | undefined,
+  isStreaming: boolean,
+  startedAt?: number,
+) {
+  const visibleKey = visibleActivityKey(activity);
+  const prevKeyRef = useRef(visibleKey);
+  const prevStartedAtRef = useRef(startedAt);
+  const [lastOutputAt, setLastOutputAt] = useState(() =>
+    visibleKey ? Date.now() : (startedAt ?? Date.now()),
+  );
+
+  useEffect(() => {
+    if (startedAt !== prevStartedAtRef.current) {
+      prevStartedAtRef.current = startedAt;
+      prevKeyRef.current = visibleKey;
+      setLastOutputAt(visibleKey ? Date.now() : (startedAt ?? Date.now()));
+      return;
+    }
+    if (!isStreaming) return;
+    if (visibleKey !== prevKeyRef.current) {
+      prevKeyRef.current = visibleKey;
+      if (visibleKey) setLastOutputAt(Date.now());
+    }
+  }, [visibleKey, isStreaming, startedAt]);
+
+  return lastOutputAt;
+}
+
 export function StreamingActivityDisplay({
   activity,
   isStreaming = true,
@@ -60,10 +98,24 @@ export function StreamingActivityDisplay({
 }) {
   const simpleView = useSimpleView();
   const elapsed = useElapsedSeconds(startedAt, isStreaming);
+  const lastOutputAt = useLastVisibleOutputAt(activity, isStreaming, startedAt);
+  const sinceLastOutput = useElapsedSeconds(
+    lastOutputAt,
+    Boolean(isStreaming && startedAt),
+  );
+  const heartbeatSeconds = thinkingHeartbeatSeconds(sinceLastOutput);
   if (simpleView) {
-    return isStreaming ? (
-      <SimpleViewWorkingStatus startedAt={startedAt} />
-    ) : null;
+    if (!isStreaming) return null;
+    return (
+      <div className="space-y-1.5">
+        <SimpleViewWorkingStatus startedAt={startedAt} />
+        {heartbeatSeconds != null ? (
+          <div className="text-muted-foreground text-sm tabular-nums">
+            {thinkingHeartbeatLabel(heartbeatSeconds)}
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   const steps = parseActivitySteps(activity);

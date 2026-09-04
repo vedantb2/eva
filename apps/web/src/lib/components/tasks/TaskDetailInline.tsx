@@ -22,6 +22,7 @@ import { StopConfirmDialog } from "./_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "./_components/ResolveConfirmDialog";
 import { StartupCommandsConfirmDialog } from "./_components/StartupCommandsConfirmDialog";
 import { RunDevServerConfirmDialog } from "./_components/RunDevServerConfirmDialog";
+import { requestConfirm, useAltHeld } from "@/lib/confirm";
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
 import { findFirstRunChatTurnRun } from "./firstRunChatTurn";
@@ -129,6 +130,7 @@ export function TaskDetailInline({
     isCreatingPr,
     handleCreatePr,
   } = useTaskDetail(taskId, routing);
+  const altHeld = useAltHeld();
 
   useEffect(() => {
     if (!isSandboxActive || !sandboxId) return;
@@ -386,7 +388,13 @@ export function TaskDetailInline({
                       streaming={streaming}
                       activeRunElapsed={activeRunElapsed}
                       isStopping={isStopping}
-                      onStopConfirm={() => setShowStopConfirm(true)}
+                      onStopConfirm={() =>
+                        requestConfirm(
+                          altHeld,
+                          () => setShowStopConfirm(true),
+                          handleStopExecution,
+                        )
+                      }
                       isProjectTask={isProjectTask}
                     />
                   </div>
@@ -448,13 +456,31 @@ export function TaskDetailInline({
         onCreatePr={handleCreatePr}
         onStopSandbox={handleStopSandbox}
         isSandboxViewActive={isSandboxViewActive}
-        onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
-        onRunDevServer={() => setShowRunDevServerConfirm(true)}
+        onRunStartupCommands={() =>
+          requestConfirm(
+            altHeld,
+            () => setShowStartupCommandsConfirm(true),
+            handleRetryStartupCommands,
+          )
+        }
+        onRunDevServer={() =>
+          requestConfirm(
+            altHeld,
+            () => setShowRunDevServerConfirm(true),
+            handleRunDevServer,
+          )
+        }
         isRunningDevServer={isRunningDevServer}
         onRunBackgroundCommands={handleRunBackgroundCommands}
         isRunningBackgroundCommands={isRunningBackgroundCommands}
         onStartExecution={handleStartExecution}
-        onResolveConfirm={() => setShowResolveConfirm(true)}
+        onResolveConfirm={() =>
+          requestConfirm(
+            altHeld,
+            () => setShowResolveConfirm(true),
+            handleResolveConflicts,
+          )
+        }
       />
     ) : null;
 

@@ -7,8 +7,11 @@
     ".": "./src/index.ts",
     "./dates": "./src/utils/dates.ts",
     "./duration": "./src/utils/duration.ts",
+    "./modelPricing": "./src/modelPricing.ts",
     "./parseActivitySteps": "./src/utils/parseActivitySteps.ts",
+    "./resultEvent": "./src/resultEvent.ts",
     "./uiTaskPrompt": "./src/uiTaskPrompt.ts",
+    "./user-initials": "./src/components/user-initials.tsx",
     "./convexErrorPayload": "./src/convexErrorPayload.ts"
   },
   "peerDependencies": {

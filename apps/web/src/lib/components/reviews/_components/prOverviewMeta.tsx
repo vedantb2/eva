@@ -24,7 +24,6 @@ export type PrOverview = FunctionReturnType<
   typeof api.github.getPullRequestOverview
 >;
 export type PrCheck = PrOverview["checks"][number];
-export type PrReview = PrOverview["reviews"][number];
 export type PrReviewEvent = PrOverview["reviewEvents"][number];
 export type PrCommit = PrOverview["commits"][number];
 export type PrComment = PrOverview["comments"][number];
@@ -84,7 +83,7 @@ export function ToneIcon({
  * one, and the title shifted left or right depending on the PR it belonged to.
  * One pill, four states, same position.
  */
-export function statusMeta(
+function statusMeta(
   status: PrOverview["status"],
   draft: boolean,
 ): { label: string; className: string; icon: TablerIcon } {

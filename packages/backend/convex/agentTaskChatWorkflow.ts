@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
@@ -10,11 +10,13 @@ import { authAction, authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
   getAIModelProvider,
+  launchTraitsFromStored,
   reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
   roleValidator,
   taskSandboxStatusValidator,
+  turnCheckpointArgs,
   usesChatDaemon,
 } from "./validators";
 import {
@@ -37,29 +39,18 @@ import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import { resolveTurnProviderAccountId } from "./_userProviderAccounts/defaults";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
+import { formatDelayedPublishFailureError } from "./_sessions/resultTarget";
 import {
-  delayedPublishFailureError,
-  orphanPlaceholderMessages,
-  resultTargetMessage,
-} from "./_sessions/resultTarget";
+  applyChatTurnResult,
+  finalizeOpenSyntheticTurnOnCancel,
+  insertAssistantPlaceholderIfNeeded,
+} from "./_chat/chatResult";
 import {
   maybeInsertModelHandoffAlert,
   prependModelHandoffContext,
 } from "./_shared/modelHandoff";
-
-async function finalizeOpenSyntheticTurnOnCancel(
-  ctx: MutationCtx,
-  syntheticTurnMessageId: Id<"messages"> | undefined,
-  streaming: Doc<"streamingActivity"> | null,
-): Promise<void> {
-  if (syntheticTurnMessageId === undefined) return;
-  const syntheticMessage = await ctx.db.get(syntheticTurnMessageId);
-  if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
-    await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
-  }
-}
 
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
 
@@ -238,6 +229,17 @@ export const startExecute = authMutation({
     }
 
     const normalizedModel = normalizeAIModel(args.model);
+    // Normalise exactly as the page-open prewarm does (`launchTraitsFromStored`
+    // in `prewarmChatDaemon` below): the composer can send a model default
+    // explicitly (e.g. reasoning "high", its display value), and forwarding it
+    // verbatim gives this turn's prewarm and the workflow's prewarm a different
+    // daemon opts sig from the page-open one — killing the daemon just booted.
+    const launchTraits = launchTraitsFromStored(normalizedModel, {
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
+      fastMode: args.fastMode,
+    });
     const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
       requestedAccountId: args.providerAccountId,
       ownerUserId: task.createdBy,
@@ -325,10 +327,7 @@ export const startExecute = authMutation({
         completionMutation: "agentTaskChatWorkflow:handleCompletion",
         ...TASK_CHAT_DAEMON_MUTATIONS,
         model: normalizedModel,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        fastMode: args.fastMode,
+        ...launchTraits,
         allowedTools: CHAT_ALLOWED_TOOLS,
         providerAccountId,
         credentialOwnerUserId: task.createdBy,
@@ -346,10 +345,9 @@ export const startExecute = authMutation({
         taskId: args.taskId,
         message: args.message,
         model: args.model,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        fastMode: args.fastMode,
+        // Same normalisation as the prewarm above: the workflow forwards these
+        // straight back into `prewarmEntityDaemon`.
+        ...launchTraits,
         providerAccountId,
         credentialOwnerUserId: task.createdBy,
         userId: ctx.userId,
@@ -531,6 +529,7 @@ export const cancelExecution = authMutation({
     const taskPatch: {
       activeChatWorkflowId?: undefined;
       pendingTurn?: undefined;
+      pendingTurnClaimedAt?: undefined;
       syntheticTurnMessageId?: undefined;
       updatedAt: number;
     } = { updatedAt: Date.now() };
@@ -549,6 +548,9 @@ export const cancelExecution = authMutation({
     }
     if (!newerTurnStaged && !newerWorkflowTracked) {
       taskPatch.syntheticTurnMessageId = undefined;
+      // This cancel owns the current turn and nothing newer has arrived, so the
+      // claim stamp is spent. See `_chat/pendingTurnRestage.ts`.
+      taskPatch.pendingTurnClaimedAt = undefined;
     }
 
     await ctx.db.patch(args.taskId, taskPatch);
@@ -580,15 +582,12 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       { taskId: args.taskId },
     );
 
-    let data = await step.runQuery(
-      internal.agentTaskChatWorkflow.getChatData,
-      {
-        taskId: args.taskId,
-        message: args.message,
-        model: args.model,
-        userId: args.userId,
-      },
-    );
+    let data = await step.runQuery(internal.agentTaskChatWorkflow.getChatData, {
+      taskId: args.taskId,
+      message: args.message,
+      model: args.model,
+      userId: args.userId,
+    });
 
     const sandboxPlan = decideSandboxStartPlan(data.sandboxStatus);
     if (sandboxPlan !== "run") {
@@ -638,15 +637,12 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
           return;
         }
       }
-      data = await step.runQuery(
-        internal.agentTaskChatWorkflow.getChatData,
-        {
-          taskId: args.taskId,
-          message: args.message,
-          model: args.model,
-          userId: args.userId,
-        },
-      );
+      data = await step.runQuery(internal.agentTaskChatWorkflow.getChatData, {
+        taskId: args.taskId,
+        message: args.message,
+        model: args.model,
+        userId: args.userId,
+      });
       if (decideSandboxStartPlan(data.sandboxStatus) !== "run") {
         await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
           taskId: args.taskId,
@@ -810,7 +806,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
           branchName: data.branchName,
         });
       } catch (error) {
-        const publishError = `Chat completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
+        const publishError = formatDelayedPublishFailureError("chat", error);
         console.error(
           `[agentTaskChatWorkflow] pushSandboxBranch failed taskId=${String(args.taskId)}: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -837,30 +833,11 @@ export const addAssistantPlaceholder = internalMutation({
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
 
-    const recent = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
-      .order("desc")
-      .take(5);
-    const lastTurnMessage = recent[0];
-    if (
-      lastTurnMessage &&
-      lastTurnMessage.role === "assistant" &&
-      lastTurnMessage.content === "" &&
-      lastTurnMessage.finishedAt === undefined &&
-      lastTurnMessage.isSyntheticTurn !== true
-    ) {
-      return null;
-    }
-
-    await ctx.db.insert("messages", {
+    await insertAssistantPlaceholderIfNeeded(ctx, {
       parentId: args.taskId,
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-      activityLog: "",
+      recentLimit: 5,
+      skipSystemAlerts: false,
     });
-    await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -966,65 +943,27 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const publishError = delayedPublishFailureError(args.result, args.error);
-    if (publishError !== undefined) {
-      await ctx.db.insert("messages", {
-        parentId: args.taskId,
-        role: "assistant",
-        content: "Failed to publish task branch",
-        timestamp: Date.now(),
-        isSystemAlert: true,
-        errorDetail: publishError,
-      });
-      await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
-      return null;
-    }
-
-    const streamingEntityId = chatStreamEntityId(args.taskId);
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
-      .first();
-    const activityLog = args.activityLog || streaming?.currentActivity;
-    await clearStreamingActivity(ctx, streamingEntityId);
-
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
 
-    const recent = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
-      .order("desc")
-      .take(20);
-    const last = resultTargetMessage(recent);
-    if (last) {
-      const patch: {
-        content: string;
-        activityLog?: string;
-        finishedAt: number;
-        pendingQuestion?: string;
-        model?: Doc<"messages">["model"];
-      } = {
-        content: args.success
-          ? args.result || "I couldn't process your message."
-          : `Error: ${args.error || "Unknown error during execution."}`,
-        finishedAt: Date.now(),
-      };
-      if (activityLog) patch.activityLog = activityLog;
-      if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
-      // Only a successful reply is a checkpoint: a failed turn's provider never
-      // saw the conversation, so it must not suppress a later catch-up.
-      if (args.success && args.model !== undefined) {
-        patch.model = normalizeAIModel(args.model);
-      }
-      await ctx.db.patch(last._id, patch);
-      for (const message of orphanPlaceholderMessages(recent, last)) {
-        await ctx.db.delete(message._id);
-      }
-    }
+    const outcome = await applyChatTurnResult(ctx, {
+      parentId: args.taskId,
+      streamingEntityId: chatStreamEntityId(args.taskId),
+      success: args.success,
+      result: args.result,
+      error: args.error,
+      activityLog: args.activityLog,
+      alertTitle: "Failed to publish task branch",
+      pendingQuestion: args.pendingQuestion,
+      model: args.model,
+    });
+    if (outcome === "publish-failure") return null;
 
     await ctx.db.patch(args.taskId, {
       activeChatWorkflowId: undefined,
+      // The turn is over, so the claim stamp has nothing left to vouch for.
+      // See `_chat/pendingTurnRestage.ts`.
+      pendingTurnClaimedAt: undefined,
       updatedAt: Date.now(),
     });
 
@@ -1043,6 +982,7 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1053,8 +993,14 @@ export const handleCompletion = authMutation({
       throw new Error("Not authorized");
     }
 
-    if (task.pendingTurn !== undefined) {
-      await ctx.db.patch(args.taskId, { pendingTurn: undefined });
+    if (
+      task.pendingTurn !== undefined ||
+      task.pendingTurnClaimedAt !== undefined
+    ) {
+      await ctx.db.patch(args.taskId, {
+        pendingTurn: undefined,
+        pendingTurnClaimedAt: undefined,
+      });
     }
 
     await sendCompletionEvent(
@@ -1103,6 +1049,7 @@ export const prewarmChatDaemon = authMutation({
     if (!(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+    const normalizedModel = normalizeAIModel(task.lastChatModel ?? task.model);
     await ctx.scheduler.runAfter(0, internal.sandbox.prewarmEntityDaemon, {
       sandboxId: task.sandboxId,
       repoId: task.repoId,
@@ -1112,14 +1059,19 @@ export const prewarmChatDaemon = authMutation({
       entityIdField: "taskId",
       completionMutation: "agentTaskChatWorkflow:handleCompletion",
       ...TASK_CHAT_DAEMON_MUTATIONS,
-      model: normalizeAIModel(task.lastChatModel ?? task.model),
-      // Forward the sticky traits so the prewarm's opts sig matches the turn
-      // path — omitting them makes every page-open prewarm mismatch a
-      // trait-launched daemon and kill+respawn it (see sessions' prewarmDaemon).
-      reasoningLevel: task.lastReasoningLevel,
-      thinkingEnabled: task.lastThinkingEnabled,
-      use1mContext: task.lastUse1mContext,
-      fastMode: task.lastFastMode,
+      model: normalizedModel,
+      // Forward the sticky traits normalised through the same helper as the
+      // composer so the prewarm's opts sig matches the turn path. The send path
+      // omits defaults, so passing the stored values verbatim (e.g. reasoning
+      // "high", the Claude default, or `fastMode: false` on a model with no Fast
+      // trait) mismatches a trait-launched daemon and kill+respawns it on every
+      // page open (see sessions' prewarmDaemon).
+      ...launchTraitsFromStored(normalizedModel, {
+        reasoningLevel: task.lastReasoningLevel,
+        thinkingEnabled: task.lastThinkingEnabled,
+        use1mContext: task.lastUse1mContext,
+        fastMode: task.lastFastMode,
+      }),
       allowedTools: CHAT_ALLOWED_TOOLS,
       providerAccountId: task.providerAccountId,
       credentialOwnerUserId: task.createdBy,
@@ -1207,15 +1159,21 @@ export const getChatPrewarmData = internalQuery({
     ) {
       return null;
     }
+    const normalizedModel = normalizeAIModel(task.lastChatModel ?? task.model);
     return {
       sandboxId: task.sandboxId,
       repoId: task.repoId,
       ownerUserId: task.createdBy,
-      model: normalizeAIModel(task.lastChatModel ?? task.model),
-      reasoningLevel: task.lastReasoningLevel,
-      thinkingEnabled: task.lastThinkingEnabled,
-      use1mContext: task.lastUse1mContext,
-      fastMode: task.lastFastMode,
+      model: normalizedModel,
+      // Normalised here, not in the caller: the traits must be exactly what the
+      // composer sends (defaults omitted) or the prewarm's opts sig differs from
+      // the turn path's and kills the warm daemon.
+      ...launchTraitsFromStored(normalizedModel, {
+        reasoningLevel: task.lastReasoningLevel,
+        thinkingEnabled: task.lastThinkingEnabled,
+        use1mContext: task.lastUse1mContext,
+        fastMode: task.lastFastMode,
+      }),
       providerAccountId: task.providerAccountId,
     };
   },

@@ -31,6 +31,7 @@ import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import {
   buildDaemonAliveCheckCmd,
   buildKillEntityDaemonCmd,
+  entityDaemonPaths,
   SESSION_DAEMON_MUTATIONS,
 } from "./daemonPaths";
 import { uploadCallbackScriptBundle } from "./launch";
@@ -1845,8 +1846,19 @@ async function runPrewarmEntityDaemon(
             );
             return { prewarmed: false };
           }
+          // Log both sigs so the diverging field is visible (the bare
+          // "respawning" line hid the reasoning-level mismatch behind the
+          // session-166 hang). Read the on-disk sig only on this rare path so
+          // alive/cold probes pay no extra exec. The sig carries model, tools,
+          // trait flags, account id, revision and entity id — no secrets.
+          // Best-effort: a failed read must not abort the respawn.
+          const onDiskSig = await execHandle(
+            sandbox,
+            `cat ${JSON.stringify(entityDaemonPaths(args.entityIdField, entityIdStr).opts)} 2>/dev/null || true`,
+            5,
+          ).catch(() => "");
           console.log(
-            `[sandbox][execution] prewarmEntityDaemon: model/tools changed — respawning entityId=${entityIdStr}`,
+            `[sandbox][execution] prewarmEntityDaemon: model/tools changed — respawning entityId=${entityIdStr} have=${onDiskSig.trim()} want=${optsSig}`,
           );
           await killDaemon();
           return null;

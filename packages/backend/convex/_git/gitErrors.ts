@@ -110,10 +110,15 @@ function isRetryableGitNetworkMessage(message: string): boolean {
   );
 }
 
+/**
+ * "stale info" is the `--force-with-lease` variant: the leased sha is no
+ * longer the tip.
+ */
 function isNonFastForwardPushMessage(message: string): boolean {
   const lower = message.toLowerCase();
   return (
     lower.includes("non-fast-forward") ||
+    lower.includes("stale info") ||
     lower.includes("fetch first") ||
     (lower.includes("[rejected]") && lower.includes("failed to push"))
   );

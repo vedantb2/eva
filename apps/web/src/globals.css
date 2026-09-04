@@ -1163,8 +1163,8 @@ html[data-blur-pid] [data-pii] {
   --beam-duration: 3s;
   --beam-spread: 12%;
   --beam-glow: 8px;
-  --beam-stops: transparent 0%,
-    rgb(var(--foreground) / 0.75) var(--beam-spread),
+  --beam-stops:
+    transparent 0%, rgb(var(--foreground) / 0.75) var(--beam-spread),
     transparent calc(var(--beam-spread) * 2);
   position: absolute;
   inset: 0;
@@ -1240,17 +1240,32 @@ html[data-blur-pid] [data-pii] {
 }
 
 .beam-progress {
-  --beam-stops: transparent 0%,
-    rgb(var(--status-progress-bar) / 0.9) var(--beam-spread),
+  --beam-stops:
+    transparent 0%, rgb(var(--status-progress-bar) / 0.9) var(--beam-spread),
     transparent calc(var(--beam-spread) * 2);
 }
 
 .beam-colorful {
-  --beam-stops: transparent 0%,
-    rgb(var(--chart-4) / 0.9) calc(var(--beam-spread) * 0.5),
+  --beam-stops:
+    transparent 0%, rgb(var(--chart-4) / 0.9) calc(var(--beam-spread) * 0.5),
     rgb(var(--chart-2) / 0.95) var(--beam-spread),
     rgb(var(--chart-5) / 0.75) calc(var(--beam-spread) * 1.5),
     transparent calc(var(--beam-spread) * 2);
+}
+
+/* Inset ring for overflow-hidden panes (Browser lock). Masks the spinning
+ * gradient to a 3px inner frame so it can sit on top of the iframe the same
+ * way `ring-inset` did — wrapping would paint the beam behind the child, and
+ * the pane's overflow-hidden would clip BorderBeam's usual -1px outset. */
+.beam-inset .beam,
+.beam-inset .beam-halo {
+  inset: 0;
+  padding: 3px;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
 }
 
 /* ───────────────────────────────────────────────────────────────────
@@ -1305,8 +1320,6 @@ html[data-blur-pid] [data-pii] {
 
 /* Common: SVG transforms need an explicit box + origin */
 .nav-icon-card,
-.nav-icon-palette,
-.nav-icon-palette-dot,
 .nav-icon-bubble,
 .nav-icon-bar,
 .nav-icon-doc-line,
@@ -1435,31 +1448,6 @@ html[data-blur-pid] [data-pii] {
     transform: scale(2.1);
   }
 }
-@keyframes nav-icon-palette-rock {
-  0%,
-  100% {
-    transform: rotate(-12deg);
-  }
-  50% {
-    transform: rotate(12deg);
-  }
-}
-.group:hover .nav-icon-palette {
-  animation: nav-icon-palette-rock 1.6s ease-in-out infinite;
-}
-.group:hover .nav-icon-palette-dot-1 {
-  animation: nav-icon-dot-pulse 0.9s ease-in-out infinite;
-}
-.group:hover .nav-icon-palette-dot-2 {
-  animation: nav-icon-dot-pulse 0.9s ease-in-out 0.12s infinite;
-}
-.group:hover .nav-icon-palette-dot-3 {
-  animation: nav-icon-dot-pulse 0.9s ease-in-out 0.24s infinite;
-}
-.group:hover .nav-icon-palette-dot-4 {
-  animation: nav-icon-dot-pulse 0.9s ease-in-out 0.36s infinite;
-}
-
 /* ── Quick Tasks — checks redraw on a loop, rings burst outward, lines
  *    sweep aggressively. */
 .nav-icon-check {

@@ -24,6 +24,7 @@ import {
   runStatusValidator,
   sandboxProviderKindValidator,
   sessionStatusValidator,
+  interactionModeValidator,
   snapshotBuildKindValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
@@ -213,6 +214,8 @@ export const pendingTurnFields = {
   turnId: v.optional(v.id("turns")),
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   model: v.optional(aiModelValidator),
+  /** Build vs plan; the daemon maps this onto Claude `setPermissionMode`. */
+  interactionMode: v.optional(interactionModeValidator),
 };
 
 export const pendingTurnValidator = v.optional(v.object(pendingTurnFields));
@@ -253,6 +256,13 @@ export const chatDaemonEntityFields = {
   // hands back an empty claim so a dying daemon cannot take the turn (and its
   // 2-minute running lease) with it.
   claimPausedUntil: v.optional(v.number()),
+  /**
+   * When the daemon last claimed `pendingTurn` (cleared when the turn
+   * finalizes). Lets the workflow's re-stage tell "claimed and running" from
+   * "wiped by a cancel race" — tasks/projects have no `turns` row to consult,
+   * unlike sessions. See `_chat/pendingTurnRestage.ts`.
+   */
+  pendingTurnClaimedAt: v.optional(v.number()),
 };
 
 export const agentTaskFields = {
@@ -376,6 +386,10 @@ export const sessionFields = {
   repoId: v.id("githubRepos"),
   userId: v.id("users"),
   title: v.string(),
+  // Set while "Regenerate title" runs so every sidebar shows the in-progress
+  // state live; cleared on success or failure. Clients treat a startedAt older
+  // than a couple of minutes as stale.
+  titleRegeneration: v.optional(v.object({ startedAt: v.number() })),
   branchName: v.optional(v.string()),
   // Base branch this session checks out from and creates its branch off of.
   // Chosen at creation (defaults to the repo default). Persisted so sandbox
@@ -403,6 +417,8 @@ export const sessionFields = {
   summary: v.optional(v.array(v.string())),
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
+  /** Sticky Plan/Build toggle. Absent sessions are Build. */
+  lastInteractionMode: v.optional(interactionModeValidator),
   activeWorkflowId: v.optional(v.string()),
   /**
    * Set the first time this session opens a durable Turn. Missing sessions may
@@ -756,6 +772,35 @@ export const automationRunFields = {
   findings: v.optional(v.array(automationFindingValidator)),
 };
 
+/**
+ * Usage columns denormalised from `rawResultEvent` at write time (see
+ * `_logs/usage.ts`) so the Usage page aggregates without parsing JSON blobs.
+ * Optional until the backfill migration has run; rows without a result event
+ * never get them.
+ */
+export const logUsageFields = {
+  costUsd: v.optional(v.number()),
+  model: v.optional(v.string()),
+  provider: v.optional(v.string()),
+  inputTokens: v.optional(v.number()),
+  outputTokens: v.optional(v.number()),
+  cacheReadTokens: v.optional(v.number()),
+  cacheCreationTokens: v.optional(v.number()),
+  durationMs: v.optional(v.number()),
+  contextWindow: v.optional(v.number()),
+};
+
+export const logFields = {
+  entityType: v.string(),
+  entityId: v.string(),
+  entityTitle: v.string(),
+  rawResultEvent: v.optional(v.string()),
+  repoId: v.id("githubRepos"),
+  projectId: v.optional(v.id("projects")),
+  createdAt: v.number(),
+  ...logUsageFields,
+};
+
 export const messageFields = {
   role: roleValidator,
   content: v.string(),
@@ -800,6 +845,12 @@ export const messageFields = {
   // User-role wake-up row inserted into the master session when a watched
   // child agent finishes. Drives distinct UI styling.
   orchestratorNotification: v.optional(v.boolean()),
+  // Turn checkpoint (assistant rows, sessions only): sandbox git HEAD when the
+  // turn started and after persistTurnWork committed/pushed at turn end. Equal
+  // shas mean the turn changed no code. Absent on turns from pre-checkpoint
+  // callback bundles and on task runs.
+  beforeSha: v.optional(v.string()),
+  afterSha: v.optional(v.string()),
 };
 
 export const queuedMessageFields = {
@@ -822,6 +873,7 @@ export const queuedMessageFields = {
   use1mContext: v.optional(v.boolean()),
   fastMode: v.optional(v.boolean()),
   responseLength: v.optional(v.string()),
+  interactionMode: v.optional(interactionModeValidator),
   // Carried from the composer through the queue to the started user message.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   // Set when a child-completion wake-up had to be queued because the master was
@@ -1110,25 +1162,38 @@ export const backgroundProcessFields = {
 };
 
 /**
- * The latest plan usage-limit reading for one agent account on one repo,
- * captured in the sandbox at the end of every turn and upserted here (one row
- * per repo+provider+account). Each row is a whole snapshot, so a field the
- * provider stopped reporting disappears rather than going stale.
+ * The latest plan usage-limit reading for one agent credential, captured in the
+ * sandbox at the end of every turn and upserted here (one row per connected
+ * account, plus one per team for the shared credential). Each row is a whole
+ * snapshot, so a field the provider stopped reporting disappears rather than
+ * going stale.
  *
  * Plan windows only: Claude reports `subscriptionType`, `status` and `windows`
  * (5-hour, weekly, per-model). A provider that exposes no plan limits does not
  * belong here — its spend is the per-turn cost gauge's business.
  */
 export const agentUsageLimitFields = {
-  repoId: v.id("githubRepos"),
+  /**
+   * Legacy. Readings used to be keyed per repo, and the rows written then still
+   * name the repo they were reported on; new rows never set it. Nothing reads
+   * them — plan headroom is a fact about the credential, so a per-repo row was
+   * the same number filed under the wrong key — and they age out of the 24h
+   * freshness window on their own, so `report` just deletes any it walks past.
+   */
+  repoId: v.optional(v.id("githubRepos")),
   provider: usageLimitProviderValidator,
   /**
-   * The connected account the run authenticated as, when it ran on one. Plan
-   * limits are per account, so this is part of the row's identity: without it a
-   * second account's reading would overwrite the first. Absent when the run
-   * used the shared team credential from the sandbox environment.
+   * The connected account the run authenticated as. Plan limits are per
+   * account, so this is the row's identity: without it a second account's
+   * reading would overwrite the first. Absent on the team row below.
    */
   providerAccountId: v.optional(v.id("userProviderAccounts")),
+  /**
+   * The team whose shared credential (`CLAUDE_CODE_OAUTH_TOKEN`, from team or
+   * repo env vars) this reading measures. Set only on that row, and never
+   * alongside `providerAccountId`: a run authenticates as one or the other.
+   */
+  teamId: v.optional(v.id("teams")),
   /** Epoch ms the sandbox took this reading. */
   capturedAt: v.number(),
   /** claude.ai plan, e.g. "max". Absent for API-key sessions. */
@@ -1141,4 +1206,18 @@ export const agentUsageLimitFields = {
    * treat that as "unknown", not as any of the three states.
    */
   completeness: v.optional(usageLimitCompletenessValidator),
+};
+
+/** A captured ExitPlanMode plan, linked to the turn that proposed it. */
+export const proposedPlanFields = {
+  sessionId: v.id("sessions"),
+  turnId: v.optional(v.id("turns")),
+  messageId: v.optional(v.id("messages")),
+  planMarkdown: v.string(),
+  /** Dedup key: `tool:<toolUseId>` or `plan:<markdown>`. */
+  captureKey: v.string(),
+  implementedAt: v.optional(v.number()),
+  implementationSessionId: v.optional(v.id("sessions")),
+  createdAt: v.number(),
+  updatedAt: v.number(),
 };

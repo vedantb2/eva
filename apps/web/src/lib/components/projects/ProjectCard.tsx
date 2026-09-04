@@ -5,7 +5,7 @@ import { useState, type MouseEvent } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import { IconDots, IconListCheck, IconSparkles } from "@tabler/icons-react";
 import {
   AvatarStack,

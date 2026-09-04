@@ -5,10 +5,18 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { WorkflowId } from "@convex-dev/workflow";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
-import { DEFAULT_AI_MODEL, getAIModelProvider } from "../validators";
+import {
+  DEFAULT_AI_MODEL,
+  getAIModelProvider,
+  launchTraitsFromStored,
+  normalizeAIModel,
+} from "../validators";
 import type { AIProvider } from "../validators";
 import { queuedMessageFields } from "../_validators/tableFields";
-import { runningBackgroundAgents } from "../_sessions/backgroundAgents";
+import {
+  backgroundAgentsExpireAt,
+  runningBackgroundAgents,
+} from "../_sessions/backgroundAgents";
 import type { BackgroundAgentEntry } from "../_validators/tableFields";
 import {
   PROJECT_CHAT_STREAM_PREFIX,
@@ -157,6 +165,44 @@ async function isSurfaceBusy<
 }
 
 /**
+ * A drain blocked only by still-running subagents has no later signal if those
+ * subagents never settle (dead daemon): `runningBackgroundAgents` drops them
+ * after the cap, but nothing drains at that moment. Book the retry for then.
+ * Skipped when a workflow or synthetic turn is what blocks — their completion
+ * drains — and when nothing is queued. Repeated blocked drains may book
+ * duplicates; `drainQueueAfterBackgroundAgents` re-checks and no-ops.
+ */
+async function scheduleDrainAtBackgroundAgentExpiry<
+  TId extends Id<"sessions"> | Id<"agentTasks"> | Id<"projects">,
+  TEntity,
+  TPrepared,
+>(
+  ctx: MutationCtx,
+  id: TId,
+  entity: TEntity,
+  config: ChatQueueConfig<TId, TEntity, TPrepared>,
+): Promise<void> {
+  if (config.hasActiveWorkflow(entity)) return;
+  const now = Date.now();
+  const expiresAt = backgroundAgentsExpireAt(
+    config.backgroundAgents(entity),
+    now,
+  );
+  if (expiresAt === null) return;
+  const queued = await ctx.db
+    .query("queuedMessages")
+    .withIndex("by_parent_and_order", (q) => q.eq("parentId", id))
+    .order("asc")
+    .first();
+  if (!queued) return;
+  await ctx.scheduler.runAfter(
+    Math.max(0, expiresAt - now) + BACKGROUND_AGENT_DRAIN_DELAY_MS,
+    internal._queues.helpers.drainQueueAfterBackgroundAgents,
+    { parentId: id },
+  );
+}
+
+/**
  * Dequeues and starts the next pending message for one chat surface. Single
  * implementation shared by sessions, project chat, and task chat — the three
  * exported `startNextQueuedX` functions below are thin `config` bindings so a
@@ -172,7 +218,9 @@ async function startNextQueuedChatMessage<
   config: ChatQueueConfig<TId, TEntity, TPrepared>,
 ): Promise<boolean> {
   const entity = await config.getEntity(ctx, id);
-  if (!entity || (await isSurfaceBusy(ctx, entity, config))) {
+  if (!entity) return false;
+  if (await isSurfaceBusy(ctx, entity, config)) {
+    await scheduleDrainAtBackgroundAgentExpiry(ctx, id, entity, config);
     return false;
   }
 
@@ -359,10 +407,16 @@ const sessionQueueConfig: ChatQueueConfig<
           sessionId: id,
           message: next.content,
           model: prepared.model,
-          reasoningLevel: next.reasoningLevel,
-          thinkingEnabled: next.thinkingEnabled,
-          use1mContext: next.use1mContext,
-          fastMode: next.fastMode,
+          // Normalised, not forwarded raw: the composer enqueues model defaults
+          // explicitly (e.g. reasoning "high"), and the workflow feeds these
+          // straight into prewarmSessionDaemon — a raw default yields a
+          // different opts sig from the page-open prewarm and kills its daemon.
+          ...launchTraitsFromStored(normalizeAIModel(prepared.model), {
+            reasoningLevel: next.reasoningLevel,
+            thinkingEnabled: next.thinkingEnabled,
+            use1mContext: next.use1mContext,
+            fastMode: next.fastMode,
+          }),
           providerAccountId: prepared.providerAccountId,
           credentialOwnerUserId: session.createdBy ?? session.userId,
           userId: next.userId,
@@ -475,10 +529,19 @@ const projectChatQueueConfig: ChatQueueConfig<
         projectId: id,
         message: next.content,
         model: next.model ?? DEFAULT_AI_MODEL,
-        reasoningLevel: next.reasoningLevel,
-        thinkingEnabled: next.thinkingEnabled,
-        use1mContext: next.use1mContext,
-        fastMode: next.fastMode,
+        // Normalised, not forwarded raw: the composer enqueues model defaults
+        // explicitly (e.g. reasoning "high"), and the workflow feeds these
+        // straight into prewarmEntityDaemon — a raw default yields a different
+        // opts sig from the page-open prewarm and kills its daemon.
+        ...launchTraitsFromStored(
+          normalizeAIModel(next.model ?? DEFAULT_AI_MODEL),
+          {
+            reasoningLevel: next.reasoningLevel,
+            thinkingEnabled: next.thinkingEnabled,
+            use1mContext: next.use1mContext,
+            fastMode: next.fastMode,
+          },
+        ),
         providerAccountId: prepared.providerAccountId,
         credentialOwnerUserId: project.userId,
         userId: next.userId,
@@ -557,10 +620,19 @@ const taskChatQueueConfig: ChatQueueConfig<
         taskId: id,
         message: next.content,
         model: next.model ?? DEFAULT_AI_MODEL,
-        reasoningLevel: next.reasoningLevel,
-        thinkingEnabled: next.thinkingEnabled,
-        use1mContext: next.use1mContext,
-        fastMode: next.fastMode,
+        // Normalised, not forwarded raw: the composer enqueues model defaults
+        // explicitly (e.g. reasoning "high"), and the workflow feeds these
+        // straight into prewarmEntityDaemon — a raw default yields a different
+        // opts sig from the page-open prewarm and kills its daemon.
+        ...launchTraitsFromStored(
+          normalizeAIModel(next.model ?? DEFAULT_AI_MODEL),
+          {
+            reasoningLevel: next.reasoningLevel,
+            thinkingEnabled: next.thinkingEnabled,
+            use1mContext: next.use1mContext,
+            fastMode: next.fastMode,
+          },
+        ),
         providerAccountId: prepared.providerAccountId,
         credentialOwnerUserId: task.createdBy,
         userId: next.userId,
@@ -627,11 +699,13 @@ export function startNextQueuedTaskChatMessage(
 }
 
 /**
- * Retry drain for the one release the surfaces cannot signal themselves: the
- * last backgrounded subagent settling. Every other unblock (turn completion,
- * synthetic-turn completion, cancel, watchdog release) already ends in a drain
- * call. Dispatches on the id's table so all three surfaces share one scheduled
- * function instead of three copies.
+ * Retry drain for the releases the surfaces cannot signal themselves: the last
+ * backgrounded subagent settling (`scheduleQueueDrainAfterBackgroundAgents`),
+ * and a subagent that never settles ageing past the block cap
+ * (`scheduleDrainAtBackgroundAgentExpiry`). Every other unblock (turn
+ * completion, synthetic-turn completion, cancel, watchdog release) already ends
+ * in a drain call. Dispatches on the id's table so all three surfaces share one
+ * scheduled function instead of three copies.
  */
 export const drainQueueAfterBackgroundAgents = internalMutation({
   args: { parentId: queuedMessageFields.parentId },

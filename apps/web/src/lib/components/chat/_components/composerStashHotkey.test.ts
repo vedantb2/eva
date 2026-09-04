@@ -44,7 +44,9 @@ describe("the composer's stash hotkey always swallows the browser default", () =
 
   test("acting on the stash still needs this composer's focus", () => {
     // Otherwise every mounted composer stashes on one keypress.
-    expect(call).toContain("if (!composerFocused && !open) return;");
+    expect(call).toContain(
+      "if (!open && !rootRef.current?.contains(document.activeElement)) return;",
+    );
     expect(call).toContain("if (disabled) return;");
   });
 });

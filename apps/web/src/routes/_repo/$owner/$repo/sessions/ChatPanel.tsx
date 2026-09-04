@@ -1,23 +1,31 @@
-import { api, normalizeAIModel, type Doc, type Id } from "@eva/backend";
+import {
+  api,
+  normalizeAIModel,
+  type Doc,
+  type Id,
+} from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
-import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
-import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
-import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
 import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
 import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { PublishRecoveryBanner } from "./_components/PublishRecoveryBanner";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
-import { SessionSummaryModal } from "./_components/SessionSummaryModal";
-import { SessionReviewModal } from "./_components/SessionReviewModal";
+import {
+  SessionSummaryModal,
+  useStartSessionSummary,
+} from "./_components/SessionSummaryModal";
+import {
+  SessionReviewModal,
+  useSendSessionForReview,
+} from "./_components/SessionReviewModal";
 import {
   useSessionSend,
   type SessionMessage,
@@ -31,13 +39,19 @@ import {
   useSessionOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
-import { useSeedChatDraft } from "@/lib/components/chat/useSeedChatDraft";
 import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCommentChips";
-import { AveResetChatDialog } from "@/lib/components/ave/AveResetChatDialog";
+import {
+  AveResetChatDialog,
+  useResetOrchestratorChat,
+} from "@/lib/components/ave/AveResetChatDialog";
+import { requestConfirm, useAltHeld } from "@/lib/confirm";
+import { toast } from "@eva/ui";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
-import { APPROVE_PLAN_PROMPT } from "./_utils/composerPrompts";
-import { motionBase } from "@eva/ui";
+import { ProposedPlanCard } from "./_components/ProposedPlanCard";
+import { proposedPlanForMessage } from "./_components/proposedPlanLogic";
+import { useSessionPlanImplementation } from "./_components/useSessionPlanImplementation";
+import { useSessionPlanDocument } from "./_components/useSessionPlanDocument";
 
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -107,13 +121,11 @@ export function ChatPanel({
   isArchived = false,
   isReadOnly = false,
   deploymentStatus,
-  sandboxCollapsed,
   permalinkPath,
   chatOnly,
   hideTitle = false,
   onOpenFile,
   onViewDiff,
-  onOpenPrdTab,
   onOpenAgentsTab,
   backgroundAgents,
 }: ChatPanelProps) {
@@ -122,6 +134,10 @@ export function ChatPanel({
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showResetChatDialog, setShowResetChatDialog] = useState(false);
+  const altHeld = useAltHeld();
+  const { sendForReview } = useSendSessionForReview(sessionId);
+  const { startSummary } = useStartSessionSummary(sessionId);
+  const { reset: resetOrchestratorChat } = useResetOrchestratorChat();
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
   // The picker lists the session owner's accounts, not the viewer's — the turn
@@ -164,7 +180,6 @@ export function ChatPanel({
 
   const draftTarget = { kind: "sessionChat" as const, sessionId };
   const draftSeed = useChatDraftSeed(draftTarget);
-  const seedChatDraft = useSeedChatDraft(draftTarget);
   const draftBundle = draftSeed.isReady
     ? {
         target: draftTarget,
@@ -187,7 +202,21 @@ export function ChatPanel({
     accounts,
     messages,
   });
-
+  const proposedPlans = useQuery(api.proposedPlans.listBySession, {
+    sessionId,
+  });
+  const { implementPlan, implementPlanContent, implementInNewSession } =
+    useSessionPlanImplementation({
+      sessionId,
+      handleSend,
+    });
+  const {
+    savePlan,
+    saveAsDocument,
+    saveAsDocumentLabel,
+    isSaving,
+    isSavingDoc,
+  } = useSessionPlanDocument(sessionId);
   const chatSurface: SandboxChatSurface = {
     entity: { kind: "session", sessionId },
     repoId: repo._id,
@@ -255,12 +284,27 @@ export function ChatPanel({
     providerAccountId: stickyProviderAccountId,
     usageAccountLabel,
     onSandboxToggle,
-    onOpenSummaryModal: () => setShowSummaryModal(true),
-    onOpenReviewModal: () => setShowReviewModal(true),
+    onOpenSummaryModal: () =>
+      requestConfirm(altHeld, () => setShowSummaryModal(true), () => {
+        void startSummary();
+      }),
+    onOpenReviewModal: () =>
+      requestConfirm(altHeld, () => setShowReviewModal(true), () => {
+        void sendForReview().then((ok) => {
+          if (ok) toast.success("Sent to the team for review.");
+        });
+      }),
     // Only Manager Ave can be reset: it is the one chat the user cannot simply
     // replace by opening a new session.
     onOpenResetChatDialog: chatOnly
-      ? () => setShowResetChatDialog(true)
+      ? () =>
+          requestConfirm(
+            altHeld,
+            () => setShowResetChatDialog(true),
+            () => {
+              void resetOrchestratorChat();
+            },
+          )
       : undefined,
   });
 
@@ -284,21 +328,21 @@ export function ChatPanel({
 
   const beforeQueuedContent = isStartupStreaming ? startupStreamingNode : null;
 
-  const hasPlanContent =
-    typeof planContent === "string" && planContent.trim().length > 0;
-  // Compact card above the composer only while the sandbox pane is collapsed —
-  // otherwise the PRD tab owns the plan and the slim strip links to it.
-  const showCompactPlanCard = hasPlanContent && sandboxCollapsed !== false;
-  // When the card is hidden but a plan exists, show a slim Plan Ready strip.
-  const showPlanReadyBanner = hasPlanContent && !showCompactPlanCard;
-
-  const handleApprovePlan = () => {
-    void seedChatDraft(APPROVE_PLAN_PROMPT);
-  };
-
-  const handleViewPlan = () => {
-    onOpenPrdTab?.();
-  };
+  const capturedPlans = proposedPlans ?? [];
+  const lastAssistantMessageId = [...messages]
+    .toReversed()
+    .find(
+      (message) => message.role === "assistant" && message.isSystemAlert !== true,
+    )?._id;
+  const planContentMarkdown =
+    typeof planContent === "string" && planContent.trim().length > 0
+      ? planContent
+      : null;
+  const planContentAlreadyInChat =
+    planContentMarkdown !== null &&
+    capturedPlans.some(
+      (plan) => plan.planMarkdown.trim() === planContentMarkdown.trim(),
+    );
 
   const preInputContent = (
     <SandboxChatPreInput
@@ -316,36 +360,6 @@ export function ChatPanel({
             />
           ) : null}
           <PendingReviewCommentChips />
-        </>
-      }
-      afterBanner={
-        <>
-          {showCompactPlanCard && planContent ? (
-            <AnimatePresence initial={false}>
-              <m.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={motionBase}
-              >
-                <SessionPrdPlanView
-                  sessionId={sessionId}
-                  planContent={planContent}
-                  onApprovePlan={handleApprovePlan}
-                  variant="compact"
-                  isArchived={isReadOnly}
-                />
-              </m.div>
-            </AnimatePresence>
-          ) : null}
-          {showPlanReadyBanner && planContent ? (
-            <ComposerPlanReadyBanner
-              planContent={planContent}
-              onViewPlan={handleViewPlan}
-              onApprovePlan={handleApprovePlan}
-              isArchived={isReadOnly}
-            />
-          ) : null}
         </>
       }
     />
@@ -412,6 +426,62 @@ export function ChatPanel({
         onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
+        afterMessage={(messageId) => {
+          const plan = proposedPlanForMessage(capturedPlans, messageId);
+          if (plan) {
+            return (
+              <ProposedPlanCard
+                planMarkdown={plan.planMarkdown}
+                implemented={plan.implementedAt !== undefined}
+                onImplement={
+                  isReadOnly || plan.implementedAt !== undefined
+                    ? undefined
+                    : () => implementPlan(plan)
+                }
+                onImplementInNewSession={
+                  isReadOnly || plan.implementedAt !== undefined
+                    ? undefined
+                    : () => void implementInNewSession(plan.planMarkdown, plan)
+                }
+                onSave={isReadOnly ? undefined : savePlan}
+                onSaveAsDocument={isReadOnly ? undefined : saveAsDocument}
+                saveAsDocumentLabel={saveAsDocumentLabel}
+                isSaving={isSaving}
+                isSavingDoc={isSavingDoc}
+                isArchived={isReadOnly}
+              />
+            );
+          }
+          if (
+            planContentMarkdown &&
+            !planContentAlreadyInChat &&
+            messageId === lastAssistantMessageId
+          ) {
+            return (
+              <ProposedPlanCard
+                planMarkdown={planContentMarkdown}
+                implemented={false}
+                onImplement={
+                  isReadOnly
+                    ? undefined
+                    : () => implementPlanContent(planContentMarkdown)
+                }
+                onImplementInNewSession={
+                  isReadOnly
+                    ? undefined
+                    : () => void implementInNewSession(planContentMarkdown)
+                }
+                onSave={isReadOnly ? undefined : savePlan}
+                onSaveAsDocument={isReadOnly ? undefined : saveAsDocument}
+                saveAsDocumentLabel={saveAsDocumentLabel}
+                isSaving={isSaving}
+                isSavingDoc={isSavingDoc}
+                isArchived={isReadOnly}
+              />
+            );
+          }
+          return null;
+        }}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
@@ -420,6 +490,9 @@ export function ChatPanel({
         onOpenAgentsTab={onOpenAgentsTab}
         backgroundAgents={backgroundAgents}
         sandboxRunning={isSandboxActive}
+        turnCheckpoint={
+          isReadOnly ? undefined : { sessionId, repoId: repo._id }
+        }
       />
       <SessionSummaryModal
         sessionId={sessionId}

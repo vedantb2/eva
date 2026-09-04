@@ -42,6 +42,52 @@ var evaMcpServers = consumed.servers;
 var evaMcpWorkerHandoffEnv = consumed.workerHandoffEnv;
 var hasEvaMcpConfig = Object.keys(evaMcpServers).length > 0;
 
+// ../shared/src/modelPricing.ts
+var ANTHROPIC_PRICING_URL = "https://platform.claude.com/docs/en/about-claude/pricing";
+var ANTHROPIC_PRICING_AS_OF = "2026-09-01";
+function anthropicRow(inputPerMillion, cacheReadPerMillion, cacheWritePerMillion, outputPerMillion) {
+  return {
+    inputPerMillion,
+    cacheReadPerMillion,
+    cacheWritePerMillion,
+    outputPerMillion,
+    source: ANTHROPIC_PRICING_URL,
+    asOf: ANTHROPIC_PRICING_AS_OF
+  };
+}
+var CLAUDE_PRICING_PER_MILLION = {
+  "claude-fable-5-1": anthropicRow(10, 0.25, 12.5, 50),
+  "claude-mythos-5-1": anthropicRow(10, 0.25, 12.5, 50),
+  "claude-fable-5": anthropicRow(10, 1, 12.5, 50),
+  "claude-mythos-5": anthropicRow(10, 1, 12.5, 50),
+  "claude-opus-5": anthropicRow(5, 0.5, 6.25, 25),
+  "claude-opus-4-8": anthropicRow(5, 0.5, 6.25, 25),
+  "claude-opus-4-7": anthropicRow(5, 0.5, 6.25, 25),
+  "claude-opus-4-6": anthropicRow(5, 0.5, 6.25, 25),
+  "claude-opus-4-5": anthropicRow(5, 0.5, 6.25, 25),
+  "claude-sonnet-5": anthropicRow(2, 0.2, 2.5, 10),
+  "claude-sonnet-4-6": anthropicRow(3, 0.3, 3.75, 15),
+  "claude-sonnet-4-5": anthropicRow(3, 0.3, 3.75, 15),
+  "claude-haiku-4-5": anthropicRow(1, 0.1, 1.25, 5)
+};
+var CODEX_PRICING_PER_MILLION = {
+  // OpenAI API list prices (per 1M tokens).
+  "gpt-5.6-sol": { input: 5, cached: 0.5, output: 30 },
+  "gpt-5.6-terra": { input: 2, cached: 0.2, output: 12 },
+  "gpt-5.6-luna": { input: 0.2, cached: 0.02, output: 1.2 },
+  "gpt-5.5": { input: 5, cached: 0.5, output: 30 },
+  // Legacy — kept so in-flight sandboxes still cost-account correctly.
+  "gpt-5.5-pro": { input: 30, cached: 30, output: 180 },
+  "gpt-5.4": { input: 1.25, cached: 0.125, output: 10 },
+  "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2 },
+  "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10 },
+  "gpt-5.2-codex": { input: 1.25, cached: 0.125, output: 10 },
+  "gpt-5-codex": { input: 1.25, cached: 0.125, output: 10 }
+};
+var CLAUDE_KEYS_BY_LENGTH = Object.keys(CLAUDE_PRICING_PER_MILLION).sort(
+  (a, b) => b.length - a.length
+);
+
 // callback-src/config.ts
 var CONVEX_URL = process.env.CONVEX_URL;
 var CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
@@ -259,20 +305,6 @@ var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "question",
   "todos"
 ]);
-var CODEX_PRICING_PER_MILLION = {
-  // OpenAI API list prices (per 1M tokens).
-  "gpt-5.6-sol": { input: 5, cached: 0.5, output: 30 },
-  "gpt-5.6-terra": { input: 2, cached: 0.2, output: 12 },
-  "gpt-5.6-luna": { input: 0.2, cached: 0.02, output: 1.2 },
-  "gpt-5.5": { input: 5, cached: 0.5, output: 30 },
-  // Legacy — kept so in-flight sandboxes still cost-account correctly.
-  "gpt-5.5-pro": { input: 30, cached: 30, output: 180 },
-  "gpt-5.4": { input: 1.25, cached: 0.125, output: 10 },
-  "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2 },
-  "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10 },
-  "gpt-5.2-codex": { input: 1.25, cached: 0.125, output: 10 },
-  "gpt-5-codex": { input: 1.25, cached: 0.125, output: 10 }
-};
 var completedLabels = {
   "Preparing Claude session...": "Prepared Claude session",
   "Preparing Codex session...": "Prepared Codex session",
@@ -24764,6 +24796,33 @@ function mediaSearchDirs(workDir, rootDirectory) {
   };
 }
 
+// callback-src/runtime/turnCheckpoint.ts
+import { spawnSync as spawnSync2 } from "child_process";
+var turnStartSha = "";
+function beginTurnCheckpoint() {
+  turnStartSha = readGitHeadSha();
+}
+function resetTurnCheckpoint() {
+  turnStartSha = "";
+}
+function currentBranch() {
+  const result = spawnSync2(
+    "git",
+    ["-C", WORK_DIR, "rev-parse", "--abbrev-ref", "HEAD"],
+    { encoding: "utf8", timeout: 2e4 }
+  );
+  return result.status === 0 ? (result.stdout || "").trim() : "";
+}
+function appendTurnCheckpoint(args2) {
+  if (ENTITY_ID_FIELD !== "sessionId") return;
+  if (RUN_ID || turnStartSha === "") return;
+  if (!currentBranch().startsWith("eva/")) return;
+  const afterSha = readGitHeadSha();
+  if (afterSha === "") return;
+  args2.beforeSha = turnStartSha;
+  args2.afterSha = afterSha;
+}
+
 // callback-src/runtime/completion.ts
 import {
   existsSync as existsSync3,
@@ -25076,6 +25135,7 @@ async function attachChatMediaIfAny(uploaded, target) {
   await callConvexWithRetry("action", "screenshots:attachMedia", mediaArgs, 3);
 }
 async function deliverCompletionWithMedia(completionArgs) {
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETION_MUTATION ?? "",
@@ -26281,7 +26341,7 @@ function claudeParseLine(event) {
         });
         continue;
       }
-      if (block.name === "TodoRead" || block.name === "TaskGet" || block.name === "TaskList") {
+      if (block.name === "TodoRead" || block.name === "TaskGet" || block.name === "TaskList" || block.name === "ExitPlanMode") {
         continue;
       }
       const step3 = toolCallToStep(block.name, input);
@@ -27581,6 +27641,7 @@ function appendToRawLogFile(text) {
 // callback-src/providers/claudeSdk.ts
 import { execSync } from "child_process";
 import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
+import { dirname } from "path";
 
 // callback-src/runtime/pendingQuestion.ts
 var POLL_INTERVAL_MS = 300;
@@ -27664,7 +27725,7 @@ function isZeroWorkTaskNotificationResult(message) {
 
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
-var SDK_VERSION = "0.3.201";
+var SDK_VERSION = "0.3.258";
 async function readSdkPlanUsage(handle) {
   if (typeof handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET !== "function") {
     log("usage limits: this SDK query handle exposes no usage method");
@@ -27680,11 +27741,24 @@ async function readSdkPlanUsage(handle) {
   }
   return await handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET();
 }
-function globalNpmRoot() {
-  return execSync("npm root -g", { encoding: "utf8" }).trim();
+var cachedGlobalNpmRoots = null;
+function globalNpmRoots() {
+  if (cachedGlobalNpmRoots !== null) return cachedGlobalNpmRoots;
+  const roots = [
+    dirname(dirname(process.execPath)) + "/lib/node_modules"
+  ];
+  try {
+    const npmRoot = execSync("npm root -g", { encoding: "utf8" }).trim();
+    if (npmRoot) roots.push(npmRoot);
+  } catch {
+  }
+  cachedGlobalNpmRoots = roots.filter(
+    (root, index) => roots.indexOf(root) === index
+  );
+  return cachedGlobalNpmRoots;
 }
 var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
-function installedSdkVersion(packageRoot) {
+function installedPackageVersion(packageRoot) {
   try {
     const manifest = JSON.parse(
       readFileSync5(packageRoot + "/package.json", "utf8")
@@ -27699,16 +27773,22 @@ function installedSdkVersion(packageRoot) {
   }
 }
 function resolvePinnedSdkEntry(pin) {
-  const globalRoot = globalNpmRoot() + "/" + pin.packageName;
   const localRoot = SDK_LOCAL_PREFIX + "/node_modules/" + pin.packageName;
-  const globalVersion = installedSdkVersion(globalRoot);
-  if (globalVersion === pin.version) return globalRoot + pin.entryRelPath;
-  if (globalVersion !== null) {
+  let driftedVersion = null;
+  for (const root of globalNpmRoots()) {
+    const globalRoot = root + "/" + pin.packageName;
+    const globalVersion = installedPackageVersion(globalRoot);
+    if (globalVersion === pin.version) return globalRoot + pin.entryRelPath;
+    if (globalVersion !== null && driftedVersion === null) {
+      driftedVersion = globalVersion;
+    }
+  }
+  if (driftedVersion !== null) {
     log(
-      "sdk version drift: global " + pin.packageName + " is " + globalVersion + ", need " + pin.version + "; falling back to the pinned user-local copy"
+      "sdk version drift: global " + pin.packageName + " is " + driftedVersion + ", need " + pin.version + "; falling back to the pinned user-local copy"
     );
   }
-  if (installedSdkVersion(localRoot) !== pin.version) {
+  if (installedPackageVersion(localRoot) !== pin.version) {
     log(
       "installing " + pin.packageName + "@" + pin.version + " to " + SDK_LOCAL_PREFIX
     );
@@ -27719,6 +27799,13 @@ function resolvePinnedSdkEntry(pin) {
   }
   return localRoot + pin.entryRelPath;
 }
+function sdkMessageJson(serialized) {
+  const parsed = tryParseJson(serialized);
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  return parsed;
+}
 async function loadSdk() {
   const mod = await import(resolvePinnedSdkEntry({
     packageName: SDK_PACKAGE,
@@ -27727,13 +27814,40 @@ async function loadSdk() {
   }));
   return mod;
 }
-function claudeExecutablePath() {
-  try {
-    return execSync("command -v claude", { encoding: "utf8" }).trim();
-  } catch {
-    const fallback = process.env.CLAUDE_BIN_PATH || "";
-    return fallback && existsSync6(fallback) ? fallback : "claude";
+var CLAUDE_CODE_PACKAGE = "@anthropic-ai/claude-code";
+function globalClaudeCliVersion() {
+  for (const root of globalNpmRoots()) {
+    const version = installedPackageVersion(root + "/" + CLAUDE_CODE_PACKAGE);
+    if (version !== null) return version;
   }
+  return null;
+}
+function claudeExecutablePath() {
+  const pinned = process.env.CLAUDE_CLI_PINNED_VERSION || null;
+  const fallback = process.env.CLAUDE_BIN_PATH || "";
+  let globalBin = "";
+  try {
+    globalBin = execSync("command -v claude", { encoding: "utf8" }).trim();
+  } catch {
+    globalBin = "";
+  }
+  if (globalBin) {
+    const globalVersion = globalClaudeCliVersion();
+    if (pinned === null || globalVersion === pinned) return globalBin;
+    log(
+      "cli version drift: global claude is " + (globalVersion ?? "unknown") + ", need " + pinned + "; preferring the pinned fallback install"
+    );
+  }
+  if (fallback && existsSync6(fallback)) {
+    const fallbackRoot = dirname(dirname(fallback)) + "/lib/node_modules/" + CLAUDE_CODE_PACKAGE;
+    const fallbackVersion = installedPackageVersion(fallbackRoot);
+    if (pinned === null || fallbackVersion === pinned) return fallback;
+    log(
+      "cli version drift: fallback claude is " + (fallbackVersion ?? "unknown") + ", need " + pinned + "; no pinned binary available"
+    );
+    if (!globalBin) return fallback;
+  }
+  return globalBin || "claude";
 }
 function readPromptText() {
   return readFileSync5("/tmp/design-prompt.txt", "utf8");
@@ -27852,14 +27966,13 @@ async function runClaudeSdkAttempt(sessionMode) {
   const consumeQuery = async () => {
     for await (const message of q) {
       lastMessageAt = Date.now();
-      if (isZeroWorkTaskNotificationResult(message)) {
+      const line = JSON.stringify(message) + "\\n";
+      const json2 = sdkMessageJson(line);
+      if (json2 !== null && isZeroWorkTaskNotificationResult(json2)) {
         sawZeroWorkTaskNotification = true;
-        log(
-          "runClaudeSdkAttempt: ignored zero-work task notification result"
-        );
+        log("runClaudeSdkAttempt: ignored zero-work task notification result");
         continue;
       }
-      const line = JSON.stringify(message) + "\\n";
       appendToRawLogFile(line);
       attemptOutput = trimBufferHead(attemptOutput + line);
       appendToRawOutput(line);
@@ -27867,8 +27980,8 @@ async function runClaudeSdkAttempt(sessionMode) {
       if (message.type === "result") {
         sawResult = true;
         resultIsError = message.is_error === true;
-        if (resultIsError && typeof message.result === "string") {
-          resultErrorMessage = message.result;
+        if (resultIsError) {
+          resultErrorMessage = message.subtype === "success" ? message.result : message.errors.join("\\n");
         }
       }
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
@@ -27991,7 +28104,7 @@ async function materializeTurnAttachments(turn) {
 }
 
 // callback-src/runtime/turnPersist.ts
-import { spawnSync as spawnSync2 } from "child_process";
+import { spawnSync as spawnSync3 } from "child_process";
 var GIT_STEP_TIMEOUT_MS = 2e4;
 var PUSH_TIMEOUT_MS = 6e4;
 var COMMIT_ADD_ARGS = [
@@ -28011,7 +28124,7 @@ var COMMIT_ADD_ARGS = [
   ":!plan.md"
 ];
 function git(args2, timeoutMs = GIT_STEP_TIMEOUT_MS) {
-  const result = spawnSync2("git", ["-C", WORK_DIR, ...args2], {
+  const result = spawnSync3("git", ["-C", WORK_DIR, ...args2], {
     encoding: "utf8",
     timeout: timeoutMs,
     env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
@@ -28019,29 +28132,11 @@ function git(args2, timeoutMs = GIT_STEP_TIMEOUT_MS) {
   const out = ((result.stdout || "") + (result.stderr || "")).trim();
   return { ok: result.status === 0, out };
 }
-var REWRITE_REMOTE_ONLY_FILE_THRESHOLD = 20;
-function parseGitNameOnlyList(output) {
-  const names = [];
-  for (const line of output.split("\\n")) {
-    const name = line.trim();
-    if (name.length > 0) names.push(name);
-  }
-  return names;
-}
-function remoteOnlyChangedFileCount(localChangedFiles, remoteChangedFiles) {
-  const local = new Set(localChangedFiles);
-  let count = 0;
-  for (const file of remoteChangedFiles) {
-    if (!local.has(file)) count += 1;
-  }
-  return count;
-}
-function divergedPublishLooksLikeRewrite(localChangedFiles, remoteChangedFiles) {
-  const remoteOnly = remoteOnlyChangedFileCount(
-    localChangedFiles,
-    remoteChangedFiles
-  );
-  return remoteOnly > REWRITE_REMOTE_ONLY_FILE_THRESHOLD && remoteOnly > localChangedFiles.length;
+function localBranchRewroteOwnHistory(branch, remoteRef) {
+  const remoteTip = git(["rev-parse", "--verify", remoteRef]);
+  const reflog = git(["reflog", "show", "--format=%H", \`refs/heads/\${branch}\`]);
+  if (!remoteTip.ok || !reflog.ok || remoteTip.out.length === 0) return false;
+  return reflog.out.split("\\n").map((line) => line.trim()).includes(remoteTip.out);
 }
 function isMissingRemoteRef(message) {
   const lower = message.toLowerCase();
@@ -28096,21 +28191,11 @@ function synchronizeForPush(branch) {
     return { status: "failed" };
   }
   if (/^[1-9]\\d*\\s+[1-9]\\d*\$/.test(divergence.out)) {
-    const localRef = \`refs/heads/\${branch}\`;
-    const mergeBase = git(["merge-base", remoteRef, localRef]);
-    if (mergeBase.ok) {
-      const localChanged = parseGitNameOnlyList(
-        git(["diff", "--name-only", mergeBase.out, localRef]).out
+    if (localBranchRewroteOwnHistory(branch, remoteRef)) {
+      log(
+        \`persistTurnWork: skipped merge \\u2014 local branch rewrote its own history vs origin/\${branch}; left to the workflow publish\`
       );
-      const remoteChanged = parseGitNameOnlyList(
-        git(["diff", "--name-only", mergeBase.out, remoteRef]).out
-      );
-      if (divergedPublishLooksLikeRewrite(localChanged, remoteChanged)) {
-        log(
-          \`persistTurnWork: skipped merge \\u2014 rewritten local branch vs origin/\${branch}\`
-        );
-        return { status: "failed" };
-      }
+      return { status: "failed" };
     }
     const merge5 = git(["merge", "--no-edit", remoteRef], PUSH_TIMEOUT_MS);
     if (merge5.ok) {
@@ -28177,6 +28262,61 @@ function persistTurnWork() {
     );
     return;
   }
+}
+
+// callback-src/providers/githubToken.ts
+function tokenFromActionResponse(data) {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    return null;
+  }
+  const value3 = data.value;
+  if (typeof value3 !== "object" || value3 === null || Array.isArray(value3)) {
+    return null;
+  }
+  return typeof value3.token === "string" ? value3.token : null;
+}
+async function fetchInstallationToken(params) {
+  try {
+    const fetchFn = params.fetchFn ?? fetchWithTimeout;
+    const response = await fetchFn(params.convexUrl + "/api/action", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + params.convexToken
+      },
+      body: JSON.stringify({
+        path: "github:getInstallationTokenAction",
+        args: { repoId: params.repoId },
+        format: "json"
+      })
+    });
+    if (!response.ok) return { token: null };
+    const token = tokenFromActionResponse(await readResponseJson(response));
+    return token ? { token } : { token: null };
+  } catch {
+    return { token: null };
+  }
+}
+function applyGithubTokenToEnv(env, token) {
+  env.GITHUB_TOKEN = token;
+  env.GH_TOKEN = token;
+}
+async function ensureGithubToken(params) {
+  const convexUrl = params.convexUrl;
+  const convexToken = params.convexToken;
+  const repoId = params.repoId;
+  if (!convexUrl || !convexToken || !repoId) {
+    return { refreshed: false };
+  }
+  const result = await fetchInstallationToken({
+    convexUrl,
+    convexToken,
+    repoId,
+    fetchFn: params.fetchFn
+  });
+  if (result.token === null) return { refreshed: false };
+  applyGithubTokenToEnv(params.env ?? process.env, result.token);
+  return { refreshed: true };
 }
 
 // callback-src/runtime/daemonSupervisor.ts
@@ -28353,6 +28493,7 @@ function readClaimedTurn(result) {
   const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
     (url2) => typeof url2 === "string"
   ) : [];
+  const interactionMode = "default";
   const turnLease = readTurnLeaseIdentity(result);
   if (lifecycle === "durable" && turnLease === null) {
     throw new Error("Durable claimed turn did not include a lease identity");
@@ -28365,6 +28506,7 @@ function readClaimedTurn(result) {
       lifecycle: "durable",
       prompt: payload.prompt,
       attachmentUrls,
+      interactionMode,
       turnLease
     };
   }
@@ -28372,6 +28514,7 @@ function readClaimedTurn(result) {
     lifecycle: "legacy",
     prompt: payload.prompt,
     attachmentUrls,
+    interactionMode,
     turnLease: null
   };
 }
@@ -28380,6 +28523,7 @@ function startClaimedTurn(turn) {
     throw new Error("Cannot start a claimed turn while another claim is active");
   }
   beginTurnOwnership("claim", turn.turnLease);
+  beginTurnCheckpoint();
 }
 function appendClaimedTurnCompletion(args2) {
   const ownership = getTurnOwnership();
@@ -28393,6 +28537,7 @@ function appendClaimedTurnCompletion(args2) {
 }
 function finishClaimedTurn() {
   endTurnOwnership();
+  resetTurnCheckpoint();
 }
 function claimedTurnLifecycleStatus() {
   const ownership = getTurnOwnership();
@@ -28482,6 +28627,7 @@ async function failTurnAndExit(error) {
       ...RUN_ID ? { runId: RUN_ID } : {}
     };
     appendClaimedTurnCompletion(completionArgs);
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
@@ -28589,41 +28735,12 @@ function createPromptStream() {
   };
   return { push, iterable };
 }
-async function ensureGithubToken() {
-  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
-  try {
-    const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json"
-      })
-    });
-    if (!res.ok) return;
-    const data = await readResponseJson(res);
-    const token = readGithubToken(data);
-    if (token) {
-      process.env.GITHUB_TOKEN = token;
-      process.env.GH_TOKEN = token;
-    }
-  } catch {
-  }
-}
-function readGithubToken(data) {
-  if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    return null;
-  }
-  const value3 = data.value;
-  if (typeof value3 !== "object" || value3 === null || Array.isArray(value3)) {
-    return null;
-  }
-  const payload = value3;
-  return typeof payload.token === "string" ? payload.token : null;
+async function refreshGithubToken() {
+  await ensureGithubToken({
+    convexUrl: CONVEX_URL,
+    convexToken: CONVEX_TOKEN,
+    repoId: REPO_ID
+  });
 }
 function resetTurnState() {
   callbackState.accumulatedSteps.length = 0;
@@ -28991,17 +29108,19 @@ async function failSyntheticTurn(error) {
       step3.status = "complete";
     }
     const turnLease = getCurrentTurnLease();
+    const completionArgs = entityMutationArgs({
+      messageId,
+      success: false,
+      result: null,
+      error,
+      activityLog: serializeSteps(callbackState.accumulatedSteps),
+      ...turnLease
+    });
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
-      entityMutationArgs({
-        messageId,
-        success: false,
-        result: null,
-        error,
-        activityLog: serializeSteps(callbackState.accumulatedSteps),
-        ...turnLease
-      })
+      completionArgs
     );
   } catch {
   }
@@ -29029,6 +29148,7 @@ async function ensureSyntheticTurn() {
     }
     resetTurnState();
     beginTurnOwnership("provider", readTurnLeaseIdentity(result));
+    beginTurnCheckpoint();
     if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
       log("daemon: synthetic turn opened after lifecycle moved; ignoring");
       endTurnOwnership();
@@ -29074,6 +29194,7 @@ async function finalizeSyntheticTurn(output) {
     completionArgs.leaseGeneration = turnLease.leaseGeneration;
   }
   persistTurnWork();
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -29088,7 +29209,7 @@ async function finalizeSyntheticTurn(output) {
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
 }
-function startRealAgentTurn(turn, agentRunner) {
+async function startRealAgentTurn(turn, agentRunner) {
   resetTurnState();
   if (!supervisor.startTurn({ kind: "real" })) {
     log("daemon: claimed turn could not enter running state");
@@ -29099,6 +29220,7 @@ function startRealAgentTurn(turn, agentRunner) {
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
   beginWatchedTurn();
+  await agentRunner.setPermissionMode("default");
   agentRunner.push(turn.prompt);
   callbackState.activeAttemptStartedAt = agentTurnStartedAt;
   agentTurnOutput = "";
@@ -29207,7 +29329,7 @@ async function runDaemonMessagePump(agentRunner) {
     if (supervisor.currentTurn === null && supervisor.pendingClaim !== null) {
       const turn = supervisor.takeClaim();
       if (turn === null) continue;
-      startRealAgentTurn(turn, agentRunner);
+      await startRealAgentTurn(turn, agentRunner);
       continue;
     }
     if (!supervisor.hasWork && unsettledBackgroundAgents.size === 0 && Date.now() - lastIdleActivityAtMs > IDLE_EXIT_MS) {
@@ -29310,7 +29432,7 @@ async function runDaemonMessagePump(agentRunner) {
     if (supervisor.pendingClaim !== null && supervisor.currentTurn === null) {
       const parked = supervisor.takeClaim();
       if (parked === null) continue;
-      startRealAgentTurn(parked, agentRunner);
+      await startRealAgentTurn(parked, agentRunner);
     }
   }
 }
@@ -29351,11 +29473,10 @@ function createWarmAgentRunner(sdk, options) {
   void (async () => {
     try {
       for await (const raw of query) {
-        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-          continue;
-        }
-        noteHarnessInitMessage(raw, query);
-        pending2.push(raw);
+        const message = sdkMessageJson(JSON.stringify(raw));
+        if (message === null) continue;
+        noteHarnessInitMessage(message, query);
+        pending2.push(message);
         wakeWaiters();
       }
     } catch (error) {
@@ -29397,6 +29518,19 @@ function createWarmAgentRunner(sdk, options) {
     }
     log("daemon: interrupt unavailable on SDK query handle");
   };
+  const setPermissionMode = async (mode) => {
+    if (typeof query.setPermissionMode !== "function") {
+      log("daemon: setPermissionMode unavailable on SDK query handle");
+      return;
+    }
+    try {
+      await query.setPermissionMode(mode === "plan" ? "plan" : "default");
+      log("daemon: permission mode set to " + mode);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log("daemon: setPermissionMode failed \\u2014 " + message);
+    }
+  };
   const readUsage = () => readSdkPlanUsage(query);
   return {
     push,
@@ -29405,7 +29539,8 @@ function createWarmAgentRunner(sdk, options) {
     hasPending,
     stopTask,
     interrupt: interrupt4,
-    readUsage
+    readUsage,
+    setPermissionMode
   };
 }
 function callbackScriptWentStaleOnDisk() {
@@ -29464,7 +29599,7 @@ async function runSdkDaemon() {
     process.exit(1);
   }
   startStreamingLoops();
-  await ensureGithubToken();
+  await refreshGithubToken();
   const sessionMode = prepareClaudeSessionState();
   const options = buildSdkOptions(sessionMode);
   const sdk = await loadSdk();
@@ -29483,14 +29618,20 @@ async function runSdkDaemon() {
     log("daemon: query failed \\u2014 " + messageText);
     persistTurnWork();
     try {
-      await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+      const completionArgs = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
         activityLog: serializeSteps(callbackState.accumulatedSteps),
         ...getCurrentTurnLease()
-      });
+      };
+      appendTurnCheckpoint(completionArgs);
+      await callConvexWithRetry(
+        "mutation",
+        COMPLETION_MUTATION ?? "",
+        completionArgs
+      );
     } catch {
     }
   } finally {
@@ -29849,30 +29990,12 @@ function processNotification(notification) {
     supervisor2.settleTurn();
   });
 }
-async function ensureGithubToken2() {
-  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
-  try {
-    const response = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json"
-      })
-    });
-    if (!response.ok) return;
-    const payload = objectValue2(await readResponseJson(response) ?? null);
-    const token = stringField(payload.value, "token");
-    if (token) {
-      process.env.GITHUB_TOKEN = token;
-      process.env.GH_TOKEN = token;
-    }
-  } catch {
-  }
+async function refreshGithubToken2() {
+  await ensureGithubToken({
+    convexUrl: CONVEX_URL,
+    convexToken: CONVEX_TOKEN,
+    repoId: REPO_ID
+  });
 }
 async function establishThread(client, sessionMode) {
   if (sessionMode.sessionId) {
@@ -29968,7 +30091,7 @@ async function runCodexAppServerDaemon() {
   const preflightOk2 = await runPreflightHeartbeat();
   if (!preflightOk2) process.exit(1);
   startStreamingLoops();
-  await ensureGithubToken2();
+  await refreshGithubToken2();
   const client = new CodexAppServerClient();
   try {
     const sessionMode = prepareCodexSessionState();
@@ -30068,9 +30191,11 @@ import { mkdirSync as mkdirSync7, readFileSync as readFileSync8 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.28";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
+var SDK_SQLITE_ENTRY_RELPATH = "/dist/esm/sqlite.js";
 var CURSOR_AGENT_SETUP_TIMEOUT_MS = 3e4;
+var CURSOR_SDK_LOCAL_MODEL_CATALOG_ENV = "CURSOR_SDK_LOCAL_MODEL_CATALOG_JSON";
 var CURSOR_SEND_START_TIMEOUT_MS = 6e4;
-var CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
+var CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 var CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 var CURSOR_RESULT_SETTLE_TIMEOUT_MS = 3e4;
 var CursorPhaseTimeoutError = class extends Error {
@@ -30102,6 +30227,12 @@ async function waitForCursorPhase(args2) {
 }
 function shouldRetryStalledCursorResume(error) {
   return error instanceof CursorPhaseTimeoutError && (error.phase === "starting the model run" || error.phase === "waiting for the first model event");
+}
+function shouldRetryStalledCursorCreate(error) {
+  return error instanceof CursorPhaseTimeoutError && error.phase === "creating a fresh agent";
+}
+function canReplaceCursorAgent(error) {
+  return isAgentNotFound(error);
 }
 function cursorEventHasVisibleActivity(type) {
   return type === "thinking" || type === "assistant" || type === "tool_call";
@@ -30145,6 +30276,7 @@ var CURSOR_WRITE_TOOLS = [
   "applyAgentDiff"
 ];
 var loadedSdk = null;
+var loadedSdkSqlite = null;
 async function loadCursorSdk() {
   if (loadedSdk) return loadedSdk;
   const mod = await import(resolvePinnedSdkEntry({
@@ -30155,8 +30287,30 @@ async function loadCursorSdk() {
   loadedSdk = mod;
   return mod;
 }
+async function loadCursorSdkSqlite() {
+  if (loadedSdkSqlite) return loadedSdkSqlite;
+  const mod = await import(resolvePinnedSdkEntry({
+    packageName: SDK_PACKAGE2,
+    version: SDK_VERSION2,
+    entryRelPath: SDK_SQLITE_ENTRY_RELPATH
+  }));
+  loadedSdkSqlite = mod;
+  return mod;
+}
 function readPromptText2() {
   return readFileSync8("/tmp/design-prompt.txt", "utf8");
+}
+function cursorModelCatalogJson(models) {
+  if (models.length === 0) return null;
+  const valid = models.every(
+    (entry) => entry !== null && typeof entry === "object" && typeof entry.id === "string"
+  );
+  if (!valid) return null;
+  return JSON.stringify(
+    models.map(
+      (entry) => Array.isArray(entry.aliases) ? { id: entry.id, aliases: entry.aliases } : { id: entry.id }
+    )
+  );
 }
 async function resolveCursorModelSelection(sdk) {
   const base = normalizedCursorModel;
@@ -30171,7 +30325,15 @@ async function resolveCursorModelSelection(sdk) {
   try {
     const list = sdk.Cursor?.models?.list;
     if (list) {
-      const models = await list();
+      const models = await waitForCursorPhase({
+        task: list(),
+        phase: "fetching the model list",
+        timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
+      });
+      if (Array.isArray(models)) {
+        const catalog = cursorModelCatalogJson(models);
+        if (catalog) process.env[CURSOR_SDK_LOCAL_MODEL_CATALOG_ENV] = catalog;
+      }
       model = Array.isArray(models) ? models.find(
         (entry) => entry && typeof entry === "object" && entry.id === base
       ) : void 0;
@@ -30373,8 +30535,12 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     cancelRun();
   });
   const sdk = await loadCursorSdk();
+  const sqlite = await loadCursorSdkSqlite();
   mkdirSync7(CURSOR_SDK_STORE_DIR, { recursive: true });
-  const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
+  const store4 = await sqlite.SqliteLocalAgentStore.open({
+    workspaceRef: WORK_DIR,
+    stateRoot: CURSOR_SDK_STORE_DIR
+  });
   const options = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
     model: await resolveCursorModelSelection(sdk),
@@ -30392,11 +30558,24 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       "Starting a fresh Cursor agent...",
       "Creating a clean model context..."
     );
-    const created = await waitForCursorPhase({
+    const create = () => waitForCursorPhase({
       task: sdk.Agent.create(options),
       phase: "creating a fresh agent",
       timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
     });
+    let created;
+    try {
+      created = await create();
+    } catch (error) {
+      if (!(error instanceof Error) || !shouldRetryStalledCursorCreate(error)) {
+        throw error;
+      }
+      log(
+        "runCursorSdkAttempt: fresh agent creation stalled \\u2014 retrying once (" + error.message + ")"
+      );
+      appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
+      created = await create();
+    }
     persistAgentId(created.agentId);
     return created;
   };
@@ -30421,26 +30600,34 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       resumedExistingAgent = true;
     } catch (error) {
       const messageText = error instanceof Error ? error.message : String(error);
-      log(
-        "runCursorSdkAttempt: resume failed \\u2014 retrying the saved agent (" + messageText + ")"
-      );
-      appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\\n");
-      if (error instanceof Error && !isAgentNotFound(error)) {
+      if (error instanceof Error && canReplaceCursorAgent(error)) {
+        log(
+          "runCursorSdkAttempt: saved agent gone \\u2014 starting a fresh agent (" + messageText + ")"
+        );
+        appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\\n");
+        agent = await createFreshAgent();
+      } else {
+        log(
+          "runCursorSdkAttempt: resume failed \\u2014 retrying the saved agent (" + messageText + ")"
+        );
+        appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\\n");
         try {
           agent = await resumeSavedAgent(sessionMode.sessionId);
           resumedExistingAgent = true;
         } catch (retryError) {
-          const retryMessageText = retryError instanceof Error ? retryError.message : String(retryError);
-          log(
-            "runCursorSdkAttempt: resume retry failed \\u2014 starting a fresh agent (" + retryMessageText + ")"
-          );
-          appendToRawLogFile(
-            "[sdk-retry] resume retry failed: " + retryMessageText + "\\n"
-          );
-          agent = await createFreshAgent();
+          if (retryError instanceof Error && canReplaceCursorAgent(retryError)) {
+            const retryMessageText = retryError.message;
+            log(
+              "runCursorSdkAttempt: saved agent gone on retry \\u2014 starting a fresh agent (" + retryMessageText + ")"
+            );
+            appendToRawLogFile(
+              "[sdk-retry] resume retry failed: " + retryMessageText + "\\n"
+            );
+            agent = await createFreshAgent();
+          } else {
+            throw retryError;
+          }
         }
-      } else {
-        agent = await createFreshAgent();
       }
     }
   } else {
@@ -30610,18 +30797,28 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     try {
       await runTurnWithRetries(agent, !resumedExistingAgent);
     } catch (error) {
-      const retryStalledResume = error instanceof Error && shouldRetryStalledCursorResume(error);
-      if (!resumedExistingAgent || !(error instanceof Error) || !(isAgentNotFound(error) || retryStalledResume)) {
+      if (!resumedExistingAgent || !(error instanceof Error)) {
         throw error;
       }
-      log(
-        "runCursorSdkAttempt: resumed agent run failed \\u2014 recovering (" + error.message + ")"
-      );
-      appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
-      resetForRecovery(agent);
       const savedSessionId = callbackState.activeCursorSessionId || sessionMode.sessionId;
-      let recoveredOnSameAgent = false;
-      if (retryStalledResume && savedSessionId) {
+      if (canReplaceCursorAgent(error)) {
+        log(
+          "runCursorSdkAttempt: saved agent gone mid-run \\u2014 starting a fresh agent (" + error.message + ")"
+        );
+        appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
+        resetForRecovery(agent);
+        pushNoticeStep2(
+          "Started a fresh Cursor agent",
+          "The saved agent could not be restored, so Eva recovered with a clean context."
+        );
+        agent = await createFreshAgent();
+        await runTurnWithRetries(agent, true);
+      } else if (shouldRetryStalledCursorResume(error) && savedSessionId) {
+        log(
+          "runCursorSdkAttempt: resumed agent run stalled \\u2014 retrying the same agent (" + error.message + ")"
+        );
+        appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
+        resetForRecovery(agent);
         pushNoticeStep2(
           "Retrying the saved Cursor agent",
           "The run stalled before any output, so Eva reopened the same agent to keep its context."
@@ -30629,24 +30826,25 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
         try {
           agent = await resumeSavedAgent(savedSessionId);
           await runTurnWithRetries(agent, false);
-          recoveredOnSameAgent = true;
         } catch (retryError) {
-          const retryIsRecoverable = retryError instanceof Error && (isAgentNotFound(retryError) || shouldRetryStalledCursorResume(retryError) || retryError instanceof CursorPhaseTimeoutError && retryError.phase === "restoring saved context");
-          if (!retryIsRecoverable) throw retryError;
-          log(
-            "runCursorSdkAttempt: same-agent retry failed \\u2014 starting a fresh agent (" + retryError.message + ")"
-          );
-          appendToRawLogFile("[sdk-retry] " + retryError.message + "\\n");
-          resetForRecovery(agent);
+          if (retryError instanceof Error && canReplaceCursorAgent(retryError)) {
+            log(
+              "runCursorSdkAttempt: saved agent gone on stall retry \\u2014 starting a fresh agent (" + retryError.message + ")"
+            );
+            appendToRawLogFile("[sdk-retry] " + retryError.message + "\\n");
+            resetForRecovery(agent);
+            pushNoticeStep2(
+              "Started a fresh Cursor agent",
+              "The saved agent could not be restored, so Eva recovered with a clean context."
+            );
+            agent = await createFreshAgent();
+            await runTurnWithRetries(agent, true);
+          } else {
+            throw retryError;
+          }
         }
-      }
-      if (!recoveredOnSameAgent) {
-        pushNoticeStep2(
-          "Started a fresh Cursor agent",
-          retryStalledResume ? "The saved agent stopped responding twice, so Eva recovered with a clean context." : "The saved agent could not be restored, so Eva recovered with a clean context."
-        );
-        agent = await createFreshAgent();
-        await runTurnWithRetries(agent, true);
+      } else {
+        throw error;
       }
     }
   } catch (error) {
@@ -30660,6 +30858,10 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     clearInterval(healthTimer);
     try {
       agent.close();
+    } catch {
+    }
+    try {
+      await store4.dispose();
     } catch {
     }
   }
@@ -30719,7 +30921,9 @@ function sleep5(ms) {
 function cursorTurnWorkerEntryPath() {
   const entryPath = process.argv[1];
   if (!entryPath) {
-    throw new Error("Cursor turn worker could not resolve the callback entrypoint");
+    throw new Error(
+      "Cursor turn worker could not resolve the callback entrypoint"
+    );
   }
   return entryPath;
 }
@@ -30733,6 +30937,7 @@ function readCursorTurnWorkerClaim() {
       lifecycle: "legacy",
       prompt,
       attachmentUrls: [],
+      interactionMode: "default",
       turnLease: null
     };
   }
@@ -30743,6 +30948,7 @@ function readCursorTurnWorkerClaim() {
     lifecycle: "durable",
     prompt,
     attachmentUrls: [],
+    interactionMode: "default",
     turnLease: {
       turnId: CURSOR_TURN_WORKER_TURN_ID,
       leaseGeneration: CURSOR_TURN_WORKER_LEASE_GENERATION
@@ -30855,35 +31061,12 @@ function resetTurnState3() {
   callbackState.todoState.length = 0;
   callbackState.lastStepType = "thinking";
 }
-async function ensureGithubToken3() {
-  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
-  try {
-    const response = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json"
-      })
-    });
-    if (!response.ok) return;
-    const data = await readResponseJson(response);
-    if (typeof data !== "object" || data === null || Array.isArray(data))
-      return;
-    const value3 = data.value;
-    if (typeof value3 !== "object" || value3 === null || Array.isArray(value3)) {
-      return;
-    }
-    if (typeof value3.token === "string") {
-      process.env.GITHUB_TOKEN = value3.token;
-      process.env.GH_TOKEN = value3.token;
-    }
-  } catch {
-  }
+async function refreshGithubToken3() {
+  await ensureGithubToken({
+    convexUrl: CONVEX_URL,
+    convexToken: CONVEX_TOKEN,
+    repoId: REPO_ID
+  });
 }
 function buildTurnCompletion(attempt) {
   const resultEvent = extractResultEvent(attempt.output);
@@ -30955,6 +31138,7 @@ async function failTurnAndExit2(error) {
       ...RUN_ID ? { runId: RUN_ID } : {}
     });
     appendClaimedTurnCompletion(completionArgs);
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
@@ -31141,7 +31325,7 @@ async function runCursorTurnWorker() {
       throw new Error("Cursor turn worker preflight failed");
     }
     startStreamingLoops();
-    await ensureGithubToken3();
+    await refreshGithubToken3();
     await executeClaimedTurn(turn);
   } finally {
     await stopStreamingLoops();
@@ -31162,6 +31346,7 @@ async function reportCursorTurnWorkerFailure(outcome) {
     ...RUN_ID ? { runId: RUN_ID } : {}
   });
   appendClaimedTurnCompletion(completionArgs);
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETION_MUTATION ?? "",
@@ -31252,7 +31437,7 @@ async function runCursorDaemon() {
     log("cursor daemon: preflight failed");
     process.exit(1);
   }
-  await ensureGithubToken3();
+  await refreshGithubToken3();
   log(
     "runCursorDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", model=" + MODEL + ")"
   );
@@ -32782,34 +32967,16 @@ for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
   } catch {
   }
 }
-if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {
-  try {
-    const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json"
-      })
-    });
-    if (res.ok) {
-      const data = await readResponseJson(res);
-      if (data && typeof data === "object" && !Array.isArray(data) && data.value && typeof data.value === "object" && !Array.isArray(data.value) && typeof data.value.token === "string") {
-        process.env.GITHUB_TOKEN = data.value.token;
-        process.env.GH_TOKEN = data.value.token;
-      }
-    }
-  } catch {
-  }
-}
+await ensureGithubToken({
+  convexUrl: CONVEX_URL,
+  convexToken: CONVEX_TOKEN,
+  repoId: REPO_ID
+});
 log(
   "entityId=" + ENTITY_ID + " provider=" + PROVIDER + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (hasMcpConfig ? "yes" : "no")
 );
 try {
+  beginTurnCheckpoint();
   const taskCommitBaselineHead = REQUIRE_TASK_COMMIT ? readGitHeadSha() : "";
   if (REQUIRE_TASK_COMMIT) {
     log(
@@ -32951,6 +33118,7 @@ try {
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
   appendCurrentTurnLease(errorArgs);
+  appendTurnCheckpoint(errorArgs);
   try {
     await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {

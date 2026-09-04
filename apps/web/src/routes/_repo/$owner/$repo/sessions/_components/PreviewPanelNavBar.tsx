@@ -7,7 +7,12 @@ import {
   WebPreviewNavigationButton,
   useWebPreview,
 } from "@eva/ui";
-import { IconClick, IconDevices } from "@tabler/icons-react";
+import {
+  IconAspectRatio,
+  IconClick,
+  IconDevices,
+  IconPictureInPicture,
+} from "@tabler/icons-react";
 import {
   PreviewNavBar,
   normalizePreviewPath,
@@ -33,9 +38,12 @@ export function PreviewPanelNavBar({
   onPathChange,
   viewport,
   onToggleDevice,
+  contain,
+  onToggleContain,
   annotationMode,
   onAnnotationModeChange,
   showAnnotationToggle,
+  popOut,
 }: {
   previewInfo: PreviewInfo | null;
   isLoading: boolean;
@@ -49,12 +57,18 @@ export function PreviewPanelNavBar({
   onPathChange: (path: string) => void;
   viewport: PreviewViewport;
   onToggleDevice: () => void;
+  /** Letterbox a locked viewport instead of filling the pane (responsive). */
+  contain: boolean;
+  onToggleContain: () => void;
   annotationMode: boolean;
   onAnnotationModeChange: (active: boolean) => void;
   showAnnotationToggle: boolean;
+  /** Sessions on desktop only: toggles the floating mini-player. */
+  popOut?: { active: boolean; onToggle: () => void };
 }) {
   const { iframeRef } = useWebPreview();
   const deviceActive = viewport.mode !== "fill";
+  const containActive = contain || deviceActive;
 
   return (
     <WebPreviewNavigation className="max-sm:flex-wrap gap-1">
@@ -70,6 +84,35 @@ export function PreviewPanelNavBar({
       >
         <IconDevices size={16} />
       </WebPreviewNavigationButton>
+      <WebPreviewNavigationButton
+        tooltip={
+          containActive ? "Fill panel (responsive)" : "Contain aspect ratio"
+        }
+        aria-label={
+          containActive ? "Fill panel (responsive)" : "Contain aspect ratio"
+        }
+        aria-pressed={containActive}
+        className={cn(
+          "max-sm:hit-target",
+          containActive && "bg-secondary text-primary hover:text-primary",
+        )}
+        onClick={onToggleContain}
+      >
+        <IconAspectRatio size={16} />
+      </WebPreviewNavigationButton>
+      {popOut ? (
+        <WebPreviewNavigationButton
+          tooltip={popOut.active ? "Bring preview back" : "Pop out preview"}
+          aria-label={popOut.active ? "Bring preview back" : "Pop out preview"}
+          aria-pressed={popOut.active}
+          className={cn(
+            popOut.active && "bg-secondary text-primary hover:text-primary",
+          )}
+          onClick={popOut.onToggle}
+        >
+          <IconPictureInPicture size={16} />
+        </WebPreviewNavigationButton>
+      ) : null}
       <PreviewScreenshotButton iframeElement={iframeElement ?? null} />
       {showAnnotationToggle ? (
         <WebPreviewNavigationButton

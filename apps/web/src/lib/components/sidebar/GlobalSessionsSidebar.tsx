@@ -1,6 +1,5 @@
 "use client";
 
-import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueries } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
@@ -30,6 +29,8 @@ import {
   mutationError,
   mutationSuccess,
 } from "@/lib/utils/mutationToast";
+import { useArchiveSession } from "@/lib/components/sidebar/useArchiveSession";
+import { requestConfirm, useAltHeld } from "@/lib/confirm";
 
 type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
 type RepoRow = FunctionReturnType<typeof api.githubRepos.list>[number];
@@ -47,8 +48,9 @@ export function GlobalSessionsSidebar({
   pathname,
   onNavigate,
 }: GlobalSessionsSidebarProps) {
-  const navigate = useNavigate();
   const { settings, setListMode } = useSessionsSidebarSettings();
+  const altHeld = useAltHeld();
+  const { archive, isArchiving } = useArchiveSession();
   const { isGroupOpen, setGroupOpen } = useSidebarAppGroupOpen(pathname, {
     storageKey: SESSIONS_APP_GROUPS_OPEN_KEY,
     sectionSegment: "/sessions",
@@ -65,10 +67,6 @@ export function GlobalSessionsSidebar({
     repo: RepoRow;
     pathSegment: string;
   } | null>(null);
-  const [isArchiving, setIsArchiving] = useState(false);
-
-  const archiveSession = useMutation(api.sessions.archive);
-
   const saveSessionRename = async () => {
     if (!sessionToRename || !renameValue.trim()) return;
     setIsRenaming(true);
@@ -86,7 +84,6 @@ export function GlobalSessionsSidebar({
     }
     setIsRenaming(false);
   };
-  const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
   const updateSession = useMutation(api.sessions.update);
 
   // Stable identity required by useQueries; deduped with each group's list watch.
@@ -169,11 +166,17 @@ export function GlobalSessionsSidebar({
                 onArchiveRequest={(session, groupRepo) => {
                   const pathSegment = entityPathSegment(session);
                   if (!pathSegment) return;
-                  setSessionToArchive({
-                    session,
-                    repo: groupRepo,
-                    pathSegment,
-                  });
+                  const target = { session, repo: groupRepo, pathSegment };
+                  requestConfirm(
+                    altHeld,
+                    () => setSessionToArchive(target),
+                    () => {
+                      void archive(target, pathname, () => {
+                        setSessionToArchive(null);
+                        if (onNavigate) onNavigate();
+                      });
+                    },
+                  );
                 }}
               />
             ))}
@@ -252,37 +255,10 @@ export function GlobalSessionsSidebar({
               disabled={isArchiving}
               onClick={() => {
                 if (!sessionToArchive) return;
-                void (async () => {
-                  setIsArchiving(true);
-                  try {
-                    if (sessionToArchive.session.sandboxId) {
-                      await stopSandboxMutation({
-                        sessionId: sessionToArchive.session._id,
-                      });
-                    }
-                    await archiveSession({
-                      id: sessionToArchive.session._id,
-                    });
-                    mutationSuccess("Session archived", "session-archive");
-                    if (
-                      pathname.includes(
-                        `/sessions/${sessionToArchive.pathSegment}`,
-                      )
-                    ) {
-                      navigate({ to: "/sessions" });
-                    }
-                    setSessionToArchive(null);
-                    // `if` rather than `?.`, and the reset duplicated into the
-                    // catch rather than a `finally`: React Compiler bails on
-                    // the whole file for either.
-                    if (onNavigate) onNavigate();
-                  } catch {
-                    mutationError("Couldn't archive session", "session-archive");
-                    setIsArchiving(false);
-                    return;
-                  }
-                  setIsArchiving(false);
-                })();
+                void archive(sessionToArchive, pathname, () => {
+                  setSessionToArchive(null);
+                  if (onNavigate) onNavigate();
+                });
               }}
             >
               {isArchiving ? "Archiving…" : "Archive"}

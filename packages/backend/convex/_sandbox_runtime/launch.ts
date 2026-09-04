@@ -5,9 +5,14 @@ import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import type { AIProvider } from "../validators";
 import { execHandle, requireEnv } from "./helpers";
+import {
+  resolvePublicConvexCloudUrl,
+  resolvePublicConvexSiteUrl,
+} from "../_env/publicConvexUrls";
 import { writeSandboxFile } from "./sandboxFiles";
 import { streamingHeartbeatHmacMessage } from "./callbackAuth";
 import { entityDaemonPaths } from "./daemonPaths";
+import { CLAUDE_CODE_VERSION } from "./claudeCliVersion";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
@@ -29,6 +34,9 @@ export const CURSOR_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.cursor-persist";
 const CLAUDE_INSTALL_TIMEOUT_SECONDS = 300;
 const CLAUDE_FALLBACK_INSTALL_DIR = "/tmp/claude-cli";
 export const CLAUDE_FALLBACK_BIN_PATH = `${CLAUDE_FALLBACK_INSTALL_DIR}/bin/claude`;
+const CLAUDE_CODE_PACKAGE = "@anthropic-ai/claude-code";
+/** Where `npm install -g --prefix CLAUDE_FALLBACK_INSTALL_DIR` places the package. */
+const CLAUDE_FALLBACK_PACKAGE_ROOT = `${CLAUDE_FALLBACK_INSTALL_DIR}/lib/node_modules/${CLAUDE_CODE_PACKAGE}`;
 const CODEX_INSTALL_TIMEOUT_SECONDS = 300;
 const CODEX_FALLBACK_INSTALL_DIR = "/tmp/codex-cli";
 const CODEX_FALLBACK_BIN_PATH = `${CODEX_FALLBACK_INSTALL_DIR}/bin/codex`;
@@ -108,24 +116,53 @@ function computeScopedHmac(message: string): string | null {
  * reserved by Convex and cannot be overridden, hence the EVA_ pair.
  */
 function publicConvexUrl(): string {
-  return process.env.EVA_PUBLIC_CONVEX_URL ?? requireEnv("CONVEX_CLOUD_URL");
+  return (
+    resolvePublicConvexCloudUrl(process.env) ?? requireEnv("CONVEX_CLOUD_URL")
+  );
 }
 
 /** Resolves the Convex site URL used for HTTP actions, falling back from cloud URL. */
 function resolveConvexSiteUrl(convexCloudUrl: string): string {
-  const configured =
-    process.env.EVA_PUBLIC_CONVEX_SITE_URL ?? process.env.CONVEX_SITE_URL;
-  if (configured) return configured;
-  return convexCloudUrl.replace(".convex.cloud", ".convex.site");
+  return (
+    resolvePublicConvexSiteUrl(process.env, convexCloudUrl) ??
+    convexCloudUrl.replace(".convex.cloud", ".convex.site")
+  );
 }
 
-/** Installs the Claude CLI globally if not already available on the sandbox. */
+/**
+ * Makes the pinned Claude CLI available on the sandbox.
+ *
+ * Version-checked, not existence-checked: models are gated on the CLI's own
+ * version, and a sandbox seeded before the pin moved keeps its stale global
+ * `claude` for life (only a reseed upgrades the global). Session 62 on a 14 Aug
+ * snapshot failed every Fable 5.1 turn with "Claude Code 2.1.232 does not
+ * support this model" because the old guard only installed when `claude` was
+ * missing. When neither the global nor the fallback prefix holds the pin, the
+ * pin is installed under the fallback prefix (user-writable; the global npm
+ * root is root-owned), and the callback prefers it over a drifted global —
+ * see `claudeExecutablePath` in callback-src/providers/claudeSdk.ts.
+ *
+ * Three roots are probed, because the seed installs with `sudo npm install -g`
+ * into node's own prefix (`/vercel/runtimes/node24/lib/node_modules`) while this
+ * command runs as the unprivileged sandbox user, whose `npm root -g` is a
+ * per-user prefix holding only pnpm. Testing `npm root -g` alone missed the
+ * seeded CLI, so every fresh sandbox reinstalled the pin (~2.5s on the launch
+ * critical path) despite already having it. Mirrors `globalNpmRoots()` in
+ * callback-src/providers/claudeSdk.ts.
+ */
 export async function ensureClaudeCliAvailable(
   sandbox: SandboxHandle,
 ): Promise<void> {
+  const pinned = quote([CLAUDE_CODE_VERSION]);
   await execHandle(
     sandbox,
-    `if ! command -v claude >/dev/null 2>&1 && [ ! -x ${quote([CLAUDE_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CLAUDE_FALLBACK_INSTALL_DIR])} @anthropic-ai/claude-code; fi`,
+    [
+      `cli_version() { node -p "require(process.argv[1] + '/package.json').version" "$1" 2>/dev/null; }`,
+      // node lives at `<prefix>/bin/node`, so its global modules are at
+      // `<prefix>/lib/node_modules` whatever the calling user's npm config says.
+      `node_root="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules"`,
+      `if [ "$(cli_version "$node_root/${CLAUDE_CODE_PACKAGE}")" != ${pinned} ] && [ "$(cli_version "$(npm root -g)/${CLAUDE_CODE_PACKAGE}")" != ${pinned} ] && [ "$(cli_version ${quote([CLAUDE_FALLBACK_PACKAGE_ROOT])})" != ${pinned} ]; then npm install -g --prefix ${quote([CLAUDE_FALLBACK_INSTALL_DIR])} @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}; fi`,
+    ].join("; "),
     CLAUDE_INSTALL_TIMEOUT_SECONDS,
   );
 }
@@ -364,6 +401,8 @@ export async function launchScript(
     `CODEX_PERSIST_DIR=${quote([CODEX_PERSIST_VOLUME_MOUNT_PATH])}`,
     `CODEX_BIN_PATH=${quote([CODEX_FALLBACK_BIN_PATH])}`,
     `CLAUDE_BIN_PATH=${quote([CLAUDE_FALLBACK_BIN_PATH])}`,
+    // Lets the callback tell a drifted global `claude` from the pinned one.
+    `CLAUDE_CLI_PINNED_VERSION=${quote([CLAUDE_CODE_VERSION])}`,
     `OPENCODE_RUNTIME_HOME_DIR=${quote([OPENCODE_RUNTIME_HOME_DIR])}`,
     `OPENCODE_PERSIST_DIR=${quote([OPENCODE_PERSIST_VOLUME_MOUNT_PATH])}`,
     `EVA_OPENCODE_BIN_PATH=${quote([OPENCODE_FALLBACK_BIN_PATH])}`,
@@ -474,6 +513,17 @@ export async function launchScript(
     sandbox,
     "/tmp/eva-launch-runner.sh",
     runnerLaunchScript,
+  );
+  // Clear the previous runner's markers synchronously first. The detached
+  // launcher removes them too, but execDetached returns before the script runs,
+  // so the first ready poll could otherwise accept a dead predecessor's marker
+  // (observed in prod: a relaunch that lost the spawn flock with exit 217
+  // reported "runner ready" in 827ms, then no daemon ever polled
+  // claimPendingTurn and the session hung on "Working…").
+  await execHandle(
+    sandbox,
+    "rm -f /tmp/run-design.pid /tmp/run-design.ready /tmp/run-design.done",
+    5,
   );
   // Use the provider-native detached path; waitForRunnerReady confirms the
   // backgrounded runner actually started.

@@ -7,7 +7,7 @@ import {
   toWorkflowId,
 } from "../workflowManager";
 import { authMutation, hasTaskAccess } from "../functions";
-import { aiModelValidator } from "../validators";
+import { aiModelValidator, turnCheckpointArgs } from "../validators";
 import { taskCompleteEvent } from "./events";
 import {
   clearStreamingActivity,
@@ -61,6 +61,7 @@ export const handleCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {

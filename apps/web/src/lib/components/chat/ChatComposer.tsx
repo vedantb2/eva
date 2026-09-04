@@ -13,6 +13,7 @@ import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import { ComposerInputChrome } from "@/lib/components/chat/_components/ComposerInputChrome";
+import { ComposerStash } from "@/lib/components/chat/_components/ComposerStash";
 import { usePeopleMentionItems } from "@/lib/hooks/usePeopleMentionItems";
 import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
 import {
@@ -90,6 +91,7 @@ interface ChatComposerProps {
   localDraft?: LocalChatDraft;
   isDraftLoading?: boolean;
   hasPendingContext?: boolean;
+  allowEmptySubmit?: boolean;
 }
 
 export function ChatComposer({
@@ -120,6 +122,7 @@ export function ChatComposer({
   localDraft,
   isDraftLoading,
   hasPendingContext = false,
+  allowEmptySubmit = false,
 }: ChatComposerProps) {
   const skillItems = useSkillSlashItems(repoId, getAIModelProvider(model));
   const dataMentions = useDataMentionItems(repoId);
@@ -145,7 +148,12 @@ export function ChatComposer({
     if (files.length > 0 && attachmentStorageIds.length < files.length) {
       toast.error("Some attachments could not be uploaded.");
     }
-    if (!visible && attachmentStorageIds.length === 0 && !hasPendingContext) {
+    if (
+      !visible &&
+      attachmentStorageIds.length === 0 &&
+      !hasPendingContext &&
+      !allowEmptySubmit
+    ) {
       return;
     }
     const content = mentionRef.current?.tokenize(visible) ?? visible;
@@ -183,40 +191,6 @@ export function ChatComposer({
         ) : null}
       </AnimatePresence>
       {preInputContent}
-      <ComposerTasksPanel
-        steps={composerTaskStepsFromActivity(streamingActivity)}
-        turnId={streamingTurnId}
-      />
-      <QueuedMessagesPanel
-        items={queuedMessageItems}
-        renderContent={(content) => {
-          const stripped = stripReviewCommentBlocks(content);
-          const display = tokenizedToEditable(stripped.text).displayText;
-          const suffix =
-            stripped.reviewCommentCount > 0
-              ? ` · ${stripped.reviewCommentCount} review comment${stripped.reviewCommentCount === 1 ? "" : "s"}`
-              : "";
-          return (
-            <MessageMentionText
-              as="span"
-              text={`${display}${suffix}`}
-              repoBasePath={repoBasePath}
-              className="text-xs leading-4 text-foreground/90"
-            />
-          );
-        }}
-        onEdit={async (id, content) => {
-          await updateQueuedMessage({ id, content });
-        }}
-        onDelete={async (id) => {
-          await deleteQueuedMessage({ id });
-        }}
-        onReorder={async (orderedIds) => {
-          const parentId = queuedMessages[0]?.parentId;
-          if (!parentId) return;
-          await reorderQueuedMessages({ parentId, orderedIds });
-        }}
-      />
       {isDraftLoading ? (
         <div
           aria-busy="true"
@@ -244,31 +218,78 @@ export function ChatComposer({
               onSave={localDraft.onSave}
             />
           )}
-          <ComposerInputChrome
+          <ComposerStash
             repoId={repoId}
-            repoBasePath={repoBasePath}
             mentionRef={mentionRef}
-            skillItems={skillItems}
-            plusDataItems={plusDataItems}
-            skillsSettingsHref={`${repoBasePath}/settings/skills`}
-            placeholder={isExecuting ? "Add a follow-up..." : placeholder}
-            isExecuting={isExecuting}
-            isInputDisabled={isInputDisabled}
-            hasPendingContext={hasPendingContext}
-            model={model}
-            setModel={setModel}
-            modelOptions={modelOptions}
-            accounts={accounts}
-            accountId={accountId}
-            onAccountChange={onAccountChange}
-            displayTraits={displayTraits}
-            onTraitsChange={onTraitsChange}
-            onPromptSubmit={handlePromptSubmit}
-            onCancel={onCancel}
-            seedMentionMap={seed?.mentionMap}
-            seedSkillMap={seed?.skillMap}
-            messageHistory={messageHistory}
-          />
+            disabled={isInputDisabled}
+            panels={
+              <>
+                <ComposerTasksPanel
+                  steps={composerTaskStepsFromActivity(streamingActivity)}
+                  turnId={streamingTurnId}
+                />
+                <QueuedMessagesPanel
+                  items={queuedMessageItems}
+                  renderContent={(content) => {
+                    const stripped = stripReviewCommentBlocks(content);
+                    const display = tokenizedToEditable(
+                      stripped.text,
+                    ).displayText;
+                    const suffix =
+                      stripped.reviewCommentCount > 0
+                        ? ` · ${stripped.reviewCommentCount} review comment${stripped.reviewCommentCount === 1 ? "" : "s"}`
+                        : "";
+                    return (
+                      <MessageMentionText
+                        as="span"
+                        text={`${display}${suffix}`}
+                        repoBasePath={repoBasePath}
+                        className="text-xs leading-4 text-foreground/90"
+                      />
+                    );
+                  }}
+                  onEdit={async (id, content) => {
+                    await updateQueuedMessage({ id, content });
+                  }}
+                  onDelete={async (id) => {
+                    await deleteQueuedMessage({ id });
+                  }}
+                  onReorder={async (orderedIds) => {
+                    const parentId = queuedMessages[0]?.parentId;
+                    if (!parentId) return;
+                    await reorderQueuedMessages({ parentId, orderedIds });
+                  }}
+                />
+              </>
+            }
+          >
+            <ComposerInputChrome
+              repoId={repoId}
+              repoBasePath={repoBasePath}
+              mentionRef={mentionRef}
+              skillItems={skillItems}
+              plusDataItems={plusDataItems}
+              skillsSettingsHref={`${repoBasePath}/settings/skills`}
+              placeholder={isExecuting ? "Add a follow-up..." : placeholder}
+              isExecuting={isExecuting}
+              isInputDisabled={isInputDisabled}
+              hasPendingContext={hasPendingContext}
+              model={model}
+              setModel={setModel}
+              modelOptions={modelOptions}
+              accounts={accounts}
+              accountId={accountId}
+              onAccountChange={onAccountChange}
+              displayTraits={displayTraits}
+              onTraitsChange={onTraitsChange}
+              onPromptSubmit={handlePromptSubmit}
+              onCancel={onCancel}
+              seedMentionMap={seed?.mentionMap}
+              seedSkillMap={seed?.skillMap}
+              messageHistory={messageHistory}
+              allowEmptySubmit={allowEmptySubmit}
+            />
+          </ComposerStash>
         </PromptInputProvider>
       )}
       {underCardLeading ? (

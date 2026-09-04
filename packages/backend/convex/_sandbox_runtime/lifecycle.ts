@@ -38,9 +38,15 @@ const CALLBACK_LIVENESS_COMMAND = [
  * the SDK migrations, so the callback process itself counts as agent liveness;
  * cursor-agent and `opencode run` stay for pre-migration sandboxes. OpenCode's
  * `opencode serve` is deliberately absent: it idles between turns, so matching
- * it would report every sandbox alive forever. */
+ * it would report every sandbox alive forever.
+ *
+ * Every alternative brackets its first character (`[c]laude-code`, `/[.]claude/`)
+ * for the same reason KILL_PRIOR_AGENT_PROCESSES_CMD in helpers.ts does: exec
+ * wraps this in `bash -lc "<cmd>"`, so the wrapper's own cmdline contains the
+ * pattern text and an unbracketed pattern always matched itself — every probe
+ * reported the agent alive and the stall watchdog never killed a dead run. */
 const AGENT_PROCESS_LIVENESS_COMMAND =
-  "pgrep -f 'claude-code|cursor-agent|codex run|opencode run|/\\.claude/|run-design\\.mjs' >/dev/null 2>&1";
+  "pgrep -f '[c]laude-code|[c]ursor-agent|[c]odex run|[o]pencode run|/[.]claude/|[r]un-design[.]mjs' >/dev/null 2>&1";
 
 /**
  * Verifies whether a sandbox and its callback runner are alive.

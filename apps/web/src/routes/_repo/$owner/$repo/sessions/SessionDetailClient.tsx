@@ -13,7 +13,7 @@ import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
 import { isSessionPrReadOnly } from "./_utils/sessionReadOnly";
-import { withMutationToast } from "@/lib/utils/mutationToast";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 export function SessionDetailClient({
@@ -115,18 +115,16 @@ export function SessionDetailClient({
   const chatOnly = session?.isOrchestrator === true;
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {
-      await withMutationToast(
+      await catchMutationError(
         startSandboxMutation({ sessionId }),
-        "Sandbox started",
         "Couldn't start sandbox",
         "session-sandbox-start",
       );
     } else {
       setIsStopPending(true);
       try {
-        await withMutationToast(
+        await catchMutationError(
           stopSandboxMutation({ sessionId }),
-          "Sandbox stopped",
           "Couldn't stop sandbox",
           "session-sandbox-stop",
         );
@@ -301,6 +299,14 @@ export function SessionDetailClient({
                 isSandboxStarting={isSandboxStarting}
                 collapsed={rightPanelCollapsed}
                 onToggle={onToggleRightPanel}
+                miniPlayer={
+                  session.numId !== undefined
+                    ? {
+                        returnTo: `${basePath}/sessions/${session.numId}/preview`,
+                        title: session.title,
+                      }
+                    : undefined
+                }
               />
             )}
             leftDefaultSize="40%"

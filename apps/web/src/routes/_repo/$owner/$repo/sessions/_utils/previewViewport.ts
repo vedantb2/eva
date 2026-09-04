@@ -5,7 +5,7 @@ export const PREVIEW_VIEWPORT_MAX = 3840;
 export const PREVIEW_VIEWPORT_MAX_AREA = 3840 * 2160;
 export const PREVIEW_VIEWPORT_RAIL_PX = 10;
 
-export const PREVIEW_VIEWPORT_PRESET_IDS = [
+const PREVIEW_VIEWPORT_PRESET_IDS = [
   "iphone-se",
   "iphone-xr",
   "iphone-12-pro",
@@ -185,16 +185,8 @@ export const PREVIEW_VIEWPORT_PRESETS: ReadonlyArray<PreviewViewportPreset> =
 export const FILL_PREVIEW_VIEWPORT: PreviewViewport = { mode: "fill" };
 
 const sizeSchema = z.object({
-  width: z
-    .number()
-    .int()
-    .min(PREVIEW_VIEWPORT_MIN)
-    .max(PREVIEW_VIEWPORT_MAX),
-  height: z
-    .number()
-    .int()
-    .min(PREVIEW_VIEWPORT_MIN)
-    .max(PREVIEW_VIEWPORT_MAX),
+  width: z.number().int().min(PREVIEW_VIEWPORT_MIN).max(PREVIEW_VIEWPORT_MAX),
+  height: z.number().int().min(PREVIEW_VIEWPORT_MIN).max(PREVIEW_VIEWPORT_MAX),
 });
 
 const previewViewportSchema = z.discriminatedUnion("mode", [
@@ -282,7 +274,7 @@ export function presetViewport(
   };
 }
 
-export function clampPreviewDimension(value: number): number {
+function clampPreviewDimension(value: number): number {
   if (!Number.isFinite(value)) return PREVIEW_VIEWPORT_MIN;
   return Math.min(
     PREVIEW_VIEWPORT_MAX,
@@ -328,12 +320,6 @@ export function rotatePreviewViewport(
     width: viewport.height,
     height: viewport.width,
   };
-}
-
-export function previewViewportAspectRatio(
-  viewport: SizedPreviewViewport,
-): number {
-  return viewport.width / viewport.height;
 }
 
 function resizeAtAspectRatio(
@@ -385,17 +371,7 @@ export function resizePreviewViewport(
   });
 }
 
-export function previewIframeScale(
-  visual: { width: number; height: number },
-  logical: { width: number; height: number },
-): number {
-  if (logical.width <= 0 || logical.height <= 0) return 1;
-  const scale = Math.min(
-    visual.width / logical.width,
-    visual.height / logical.height,
-  );
-  return Number.isFinite(scale) && scale > 0 ? scale : 1;
-}
+export { previewIframeScale } from "@/lib/components/sandbox/previewContain";
 
 export function fittedPreviewContainStyle(logical: {
   width: number;
@@ -410,17 +386,34 @@ export function fittedPreviewContainStyle(logical: {
   };
 }
 
-export function previewViewportLabel(viewport: PreviewViewport): string {
-  if (viewport.mode === "fill") return "Fill panel";
-  if (viewport.mode === "preset") {
-    const preset = PRESET_DEFINITIONS[viewport.id];
-    return preset.label;
-  }
-  return "Responsive";
-}
-
 export function sizedPreviewViewport(
   viewport: PreviewViewport,
 ): SizedPreviewViewport | null {
   return viewport.mode === "fill" ? null : viewport;
+}
+
+const DEFAULT_CONTAIN_SIZE = { width: 1280, height: 800 };
+
+/** Locked guest box for the preview-bar contain toggle (fill + letterbox). */
+export function parsePreviewContainSize(raw: string): {
+  width: number;
+  height: number;
+} {
+  try {
+    const parsed = JSON.parse(raw) as { width?: unknown; height?: unknown };
+    const size = snapshotFillViewport({
+      width: Number(parsed.width),
+      height: Number(parsed.height),
+    });
+    return { width: size.width, height: size.height };
+  } catch {
+    return { ...DEFAULT_CONTAIN_SIZE };
+  }
+}
+
+export function serializePreviewContainSize(size: {
+  width: number;
+  height: number;
+}): string {
+  return JSON.stringify(clampPreviewViewportSize(size));
 }

@@ -7,6 +7,7 @@ import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import {
   chipSummaryForActive,
   claudeUsageAccountScope,
+  snapshotsOf,
   usageRowsForAccount,
   USAGE_TONE_TEXT_CLASS,
 } from "./_utils";
@@ -31,8 +32,8 @@ interface UsageLimitsIndicatorProps {
  *
  * - Chip / bar: the active Claude account, preferring the selected model's
  *   weekly window when Anthropic reports one.
- * - Popover: every Claude account on the repo — same query everywhere, so
- *   switching sessions cannot show a different card of numbers.
+ * - Popover: every Claude credential the viewer can run on — same query
+ *   everywhere, so switching sessions cannot show a different card of numbers.
  *
  * Simple view hides it with the context gauge.
  */
@@ -44,12 +45,12 @@ export function UsageLimitsIndicator({
 }: UsageLimitsIndicatorProps) {
   const simpleView = useSimpleView();
   const now = useMinuteNow();
-  const rows = useQuery(
-    api.usageLimits.getByRepo,
+  const entries = useQuery(
+    api.usageLimits.getForViewer,
     simpleView ? "skip" : { repoId, now },
   );
   if (simpleView) return null;
-  if (rows === undefined) return null;
+  if (entries === undefined) return null;
 
   const accountScope =
     providerAccountId === undefined
@@ -58,6 +59,7 @@ export function UsageLimitsIndicator({
           providerAccountId,
           accountLabel,
         });
+  const rows = snapshotsOf(entries);
   const chipRows = accountScope
     ? usageRowsForAccount(rows, accountScope)
     : rows;
@@ -87,7 +89,7 @@ export function UsageLimitsIndicator({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 overflow-hidden p-0">
-        <UsageLimitsDetails repoId={repoId} rows={rows} now={now} />
+        <UsageLimitsDetails repoId={repoId} entries={entries} now={now} />
       </PopoverContent>
     </Popover>
   );

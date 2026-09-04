@@ -177,7 +177,7 @@ export function updateThinkingStep(label: string, detail?: string): void {
 }
 
 /** Removes startup/thinking filler once durable activity or text begins. */
-export function clearThinkingStep(): void {
+function clearThinkingStep(): void {
   S.transientThinkingStep = null;
 }
 

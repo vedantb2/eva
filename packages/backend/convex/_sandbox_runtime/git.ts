@@ -37,10 +37,11 @@ import {
   type GitFailure,
   isSandboxExecTimeout,
 } from "../_git/gitErrors";
+import { gitRemoteAuthPrefix } from "./gitRemoteCommand";
 import {
-  divergedPublishLooksLikeRewrite,
+  isEvaOwnedBranch,
   parseGitNameOnlyList,
-  remoteOnlyChangedFileCount,
+  rewrittenBranchIsOwnHistory,
   rewrittenBranchPublishError,
 } from "./divergedPublish";
 import { ensureSwapFile } from "./swap";
@@ -433,8 +434,10 @@ export async function createSandbox(
       // Orchestrator: no containers, and the universal image has no docker
       // binary — the bootstrap would sit in a 90s poll then another 60s.
       if (!skipDocker) {
-        await runLoggedGitStep("createSandbox.bootstrapDocker", sandbox.id, () =>
-          bootstrapVercelDocker(sandbox),
+        await runLoggedGitStep(
+          "createSandbox.bootstrapDocker",
+          sandbox.id,
+          () => bootstrapVercelDocker(sandbox),
         );
       }
 
@@ -502,7 +505,7 @@ export async function fetchOrigin(
         async () => {
           await execGitCommand(
             sandbox,
-            `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg} origin${refArg}`,
+            `${gitRemoteAuthPrefix(workspaceDir, repoUrl)} git fetch --no-tags${pruneArg} origin${refArg}`,
             opts?.timeoutSeconds ?? 240,
           );
         },
@@ -556,7 +559,7 @@ export async function fetchBranchRefs(
       (b) => `+refs/heads/${b}:refs/remotes/origin/${b}`,
     );
     const refspecArgs = refspecs.map((r) => quote([r])).join(" ");
-    const setupAndFetch = `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg} origin`;
+    const setupAndFetch = `${gitRemoteAuthPrefix(workspaceDir, repoUrl)} git fetch --no-tags${pruneArg} origin`;
     return await retryGitNetworkOperation(
       "fetchBranchRefs",
       details,
@@ -1089,6 +1092,42 @@ export async function setupBranch(
   });
 }
 
+type BranchPublishSync = {
+  remoteExists: boolean;
+  /**
+   * Set when the local branch rewrote history that origin still holds and the
+   * remote tip is provably the sandbox's own old tip. The push must then be
+   * leased on exactly this sha so anything that lands in between aborts it.
+   */
+  replaceRemoteTip?: string;
+};
+
+/**
+ * Every commit the local branch has ever pointed at in this sandbox. Empty when
+ * the branch has no reflog, which makes the caller merge rather than force.
+ */
+async function localBranchReflogShas(
+  sandbox: SandboxHandle,
+  branchName: string,
+): Promise<string[]> {
+  const workspaceDir = workspaceDirShell();
+  const quotedLocalRef = quote([`refs/heads/${branchName}`]);
+  try {
+    return parseGitNameOnlyList(
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git reflog show --format=%H ${quotedLocalRef}`,
+        15,
+      ),
+    );
+  } catch (error) {
+    logGit(
+      `localBranchReflogShas: no reflog for ${branchName}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return [];
+  }
+}
+
 /**
  * Refreshes the exact remote branch and makes the checked-out local branch a
  * safe fast-forward of it before publication.
@@ -1105,17 +1144,26 @@ export async function setupBranch(
  * merge could never publish, and every retry failed identically. A merge
  * conflicts only where the two tips genuinely touch the same lines.
  *
- * Skip that merge when the unique remote tree looks like a rewritten base
- * (task 231, 25 Aug 2026): rebasing onto main left one local file against
- * 1,272 remote-only staging commits, and merging the old tip back in
- * conflicted inside publish while the sandbox stayed clean.
+ * Skip that merge when the local branch rewrote its own history (task 231,
+ * 25 Aug 2026): rebasing onto main left one local file against 1,272
+ * remote-only staging commits, and merging the old tip back in conflicted
+ * inside publish while the sandbox stayed clean. A rewrite is recognised by
+ * the local branch's reflog holding the remote tip — the sandbox once had
+ * every remote commit and moved off them on purpose — and an eva/ branch is
+ * then published as a push leased on that exact tip.
+ *
+ * A remote tip the reflog never held was pushed by someone else, however many
+ * files it touched, and is merged in like any concurrent work. Quick task 220
+ * (evalucom/carepulse-ts, 2–3 Sep 2026) is why the file counts are not
+ * consulted: GitHub had gained 118 commits on the PR branch, the sandbox one,
+ * and a "many remote-only files" classifier refused twice what a merge fixed.
  */
 async function synchronizeBranchForPublish(
   sandbox: SandboxHandle,
   owner: string,
   name: string,
   branchName: string,
-): Promise<{ remoteExists: boolean }> {
+): Promise<BranchPublishSync> {
   if (!isSafeBranchName(branchName)) {
     throw new Error(`Unsafe branch name: ${branchName}`);
   }
@@ -1160,13 +1208,11 @@ async function synchronizeBranchForPublish(
     await pinBranchUpstream(sandbox, branchName);
   }
 
-  const fetched = await fetchBranchRefs(
-    sandbox,
-    owner,
-    name,
-    [branchName],
-    { prune: false, timeoutSeconds: 60, retryAttempts: 2 },
-  );
+  const fetched = await fetchBranchRefs(sandbox, owner, name, [branchName], {
+    prune: false,
+    timeoutSeconds: 60,
+    retryAttempts: 2,
+  });
   const remoteRefName = `refs/remotes/origin/${branchName}`;
   const quotedRemoteRef = quote([remoteRefName]);
   const quotedLocalRef = quote([`refs/heads/${branchName}`]);
@@ -1201,37 +1247,28 @@ async function synchronizeBranchForPublish(
     return { remoteExists: true };
   }
   if (/^[1-9]\d*\s+[1-9]\d*$/.test(divergence)) {
-    const mergeBase = (
+    // "<remote-only> <local-only>" commit counts, for the log and the error.
+    const [remoteOnlyCommits, localOnlyCommits] = divergence.split(/\s+/);
+    const remoteTip = (
       await execGitCommand(
         sandbox,
-        `cd ${workspaceDir} && git merge-base ${quotedRemoteRef} ${quotedLocalRef}`,
-        15,
+        `cd ${workspaceDir} && git rev-parse --verify ${quotedRemoteRef}`,
+        10,
       )
     ).trim();
-    const quotedMergeBase = quote([mergeBase]);
-    const localChanged = parseGitNameOnlyList(
-      await execGitCommand(
-        sandbox,
-        `cd ${workspaceDir} && git diff --name-only ${quotedMergeBase} ${quotedLocalRef}`,
-        30,
-      ),
-    );
-    const remoteChanged = parseGitNameOnlyList(
-      await execGitCommand(
-        sandbox,
-        `cd ${workspaceDir} && git diff --name-only ${quotedMergeBase} ${quotedRemoteRef}`,
-        30,
-      ),
-    );
-    if (divergedPublishLooksLikeRewrite(localChanged, remoteChanged)) {
-      const remoteOnly = remoteOnlyChangedFileCount(
-        localChanged,
-        remoteChanged,
+    const reflogShas = await localBranchReflogShas(sandbox, branchName);
+    if (rewrittenBranchIsOwnHistory(remoteTip, reflogShas)) {
+      if (!isEvaOwnedBranch(branchName)) {
+        throw new Error(rewrittenBranchPublishError(branchName));
+      }
+      logGit(
+        `synchronizeBranchForPublish: origin/${branchName} tip ${remoteTip.slice(0, 7)} is in the local branch reflog (${reflogShas.length} entries); the local branch rewrote its own history — publishing leased on that tip (${remoteOnlyCommits} remote-only commits vs ${localOnlyCommits} local)`,
       );
-      throw new Error(
-        rewrittenBranchPublishError(branchName, remoteOnly, localChanged.length),
-      );
+      return { remoteExists: true, replaceRemoteTip: remoteTip };
     }
+    logGit(
+      `synchronizeBranchForPublish: origin/${branchName} tip ${remoteTip.slice(0, 7)} is not in the local branch reflog (${reflogShas.length} entries); merging its ${remoteOnlyCommits} remote-only commits into the ${localOnlyCommits} local`,
+    );
     try {
       await execGitCommand(
         sandbox,
@@ -1254,7 +1291,7 @@ async function synchronizeBranchForPublish(
         );
       }
       throw new Error(
-        `Could not merge origin/${branchName} into the local branch. The sandbox was left clean — there are no conflict markers to resolve. If you rewrote history, force-push; if both sides committed, merge the remote branch in the sandbox and retry.`,
+        `Could not merge origin/${branchName} (${remoteOnlyCommits} commits this sandbox never had) into the local branch (${localOnlyCommits} unpublished commits). The sandbox was left clean — there are no conflict markers to resolve. If you rewrote history, force-push; if both sides committed, merge the remote branch in the sandbox and retry.`,
       );
     }
     return { remoteExists: true };
@@ -1300,14 +1337,19 @@ export async function pushBranchToOrigin(
     // Everything up to the push runs through `Effect.promise`, so a failure
     // there is a defect: it surfaces as-is instead of being retried, which is
     // what the synchronize/gate steps did when they threw out of the old loop.
+    // Every retry re-runs this, so the lease is recomputed against the remote
+    // tip the fresh sync just observed.
     const resynchronize = Effect.promise(async () => {
       attempt += 1;
-      const { remoteExists } = await synchronizeBranchForPublish(
-        sandbox,
-        owner,
-        name,
-        branchName,
-      );
+      const { remoteExists, replaceRemoteTip } =
+        await synchronizeBranchForPublish(sandbox, owner, name, branchName);
+      // Never a bare --force: the lease names the exact remote sha the sync
+      // just verified as the sandbox's own old tip, so a commit that lands in
+      // between is rejected ("stale info") and the retry re-syncs against it.
+      const lease =
+        replaceRemoteTip === undefined
+          ? ""
+          : `--force-with-lease=${quote([`refs/heads/${branchName}:${replaceRemoteTip}`])} `;
 
       // A chat/Q&A turn has nothing to publish. Once the remote session branch
       // exists, compare to that exact ref; otherwise compare to all fetched
@@ -1330,12 +1372,12 @@ export async function pushBranchToOrigin(
           `pushBranchToOrigin: ahead-of-remote gate failed, pushing anyway (${details}): ${error instanceof Error ? error.message : String(error)}`,
         );
       }
-      return { remoteExists, hasUnpushedCommits: unpushedCount !== "0" };
+      return { remoteExists, hasUnpushedCommits: unpushedCount !== "0", lease };
     });
 
     return await runPromiseRethrowing(
       resynchronize.pipe(
-        Effect.flatMap(({ remoteExists, hasUnpushedCommits }) => {
+        Effect.flatMap(({ remoteExists, hasUnpushedCommits, lease }) => {
           if (!hasUnpushedCommits) {
             logGit(
               `pushBranchToOrigin: skipped — HEAD has no commits origin lacks (${details})`,
@@ -1346,7 +1388,7 @@ export async function pushBranchToOrigin(
             try: () =>
               execGitCommand(
                 sandbox,
-                `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedRefspec}`,
+                `${gitRemoteAuthPrefix(workspaceDir, repoUrl)} git push ${lease}-u origin ${quotedRefspec}`,
                 opts?.timeoutSeconds ?? 60,
               ),
             catch: classifyGitFailure,
@@ -1428,7 +1470,7 @@ export async function forcePushBranchToOrigin(
     const repoUrl = bareGitHubRepoUrl(owner, name);
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push ${lease}-u origin ${quotedRefspec}`,
+      `${gitRemoteAuthPrefix(workspaceDir, repoUrl)} git push ${lease}-u origin ${quotedRefspec}`,
       90,
     );
   });

@@ -176,6 +176,29 @@ function iconForStep(step: ActivityStep) {
   return (stepConfig[step.type] ?? stepConfig.tool).icon;
 }
 
+/**
+ * One thinking block behind a "Thought for Ns" trigger. Streaming steps open
+ * themselves so live thinking is readable as it lands, then auto-close.
+ */
+function ActivityReasoningDisclosure({ step }: { step: ActivityStep }) {
+  const thoughts = step.detail?.trim() ?? "";
+  const isActive = step.status === "active";
+  const seconds = step.durationMs
+    ? Math.max(1, Math.round(step.durationMs / 1000))
+    : undefined;
+  return (
+    <Reasoning
+      className="mb-0"
+      isStreaming={isActive}
+      defaultOpen={isActive}
+      duration={isActive ? undefined : seconds}
+    >
+      <ReasoningTrigger />
+      {thoughts ? <ReasoningContent>{thoughts}</ReasoningContent> : null}
+    </Reasoning>
+  );
+}
+
 /** One per-call activity row with Synara-style humanized label. */
 function ActivityStepRow({
   row,
@@ -215,21 +238,7 @@ function ActivityStepRow({
   }
 
   if (step.type === "reasoning") {
-    const thoughts = step.detail?.trim() ?? "";
-    const seconds = step.durationMs
-      ? Math.max(1, Math.round(step.durationMs / 1000))
-      : undefined;
-    return (
-      <Reasoning
-        className="mb-0"
-        isStreaming={isActive}
-        defaultOpen={isActive}
-        duration={isActive ? undefined : seconds}
-      >
-        <ReasoningTrigger />
-        {thoughts ? <ReasoningContent>{thoughts}</ReasoningContent> : null}
-      </Reasoning>
-    );
+    return <ActivityReasoningDisclosure step={step} />;
   }
 
   const Icon = iconForStep(step);

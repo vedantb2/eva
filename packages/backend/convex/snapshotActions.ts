@@ -34,6 +34,7 @@ import {
   releaseSwapFile,
   resolveSwapConfig,
 } from "./_sandbox_runtime/swap";
+import { CLAUDE_CODE_VERSION } from "./_sandbox_runtime/claudeCliVersion";
 import { Sandbox, Snapshot } from "@vercel/sandbox";
 import { SANDBOX_TAG } from "./_sandbox/tags";
 
@@ -81,8 +82,9 @@ const CODE_SERVER_VERSION = "4.132.0";
 const OPENCODE_VERSION = "1.18.16";
 // Mirror any bump in callback-src/providers/{claudeSdk,cursorSdk}.ts
 // (SDK_VERSION): the callback's stream parsers match one SDK release's message
-// shapes exactly.
-const CLAUDE_AGENT_SDK_VERSION = "0.3.201";
+// shapes exactly. Bump CLAUDE_CODE_VERSION (_sandbox_runtime/claudeCliVersion)
+// alongside the agent SDK — 0.3.X ships the CLI it spawns, 2.1.X.
+const CLAUDE_AGENT_SDK_VERSION = "0.3.258";
 const CURSOR_SDK_VERSION = "1.0.28";
 
 /**
@@ -93,9 +95,26 @@ const CURSOR_SDK_VERSION = "1.0.28";
  * silent rather than fatal: the callback's parsers drop every event they do not
  * recognise, so the turn renders no activity at all while still returning its
  * final answer.
+ *
+ * Two roots are tested, because the install below is `sudo npm install -g`,
+ * which writes to node's own prefix (`/vercel/runtimes/node24/lib/node_modules`
+ * on a Vercel sandbox), while this guard runs as the unprivileged sandbox user
+ * whose `npm root -g` is a per-user prefix holding only pnpm. Testing `npm root
+ * -g` alone therefore never matched, so every seed reinstalled the whole
+ * toolchain. Mirrors `globalNpmRoots()` in
+ * callback-src/providers/claudeSdk.ts. The node-derived root is computed inside
+ * node to avoid nesting shell quotes in the `node -p` argument.
+ *
+ * Braced because the caller chains these with `&&` before an `|| sudo npm
+ * install` fallback: a bare `[ a ] || [ b ]` would re-associate and let one
+ * package's second test satisfy another package's first.
  */
 function globalPackageIsVersion(name: string, version: string): string {
-  return `[ "$(node -p "require('$(npm root -g)/${name}/package.json').version" 2>/dev/null)" = "${version}" ]`;
+  const nodePrefixRoot =
+    "require('path').dirname(require('path').dirname(process.execPath)) + '/lib/node_modules'";
+  const atNodePrefix = `"$(node -p "require(${nodePrefixRoot} + '/${name}/package.json').version" 2>/dev/null)"`;
+  const atNpmRoot = `"$(node -p "require('$(npm root -g)/${name}/package.json').version" 2>/dev/null)"`;
+  return `{ [ ${atNodePrefix} = "${version}" ] || [ ${atNpmRoot} = "${version}" ]; }`;
 }
 
 function shouldCaptureSupabaseState(commands: string[]): boolean {
@@ -368,7 +387,7 @@ export const launchSeedRun = internalAction({
       "sudo mkdir -p /opt/git/etc",
       'sudo /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
       'sudo env GIT_CONFIG_SYSTEM=/etc/gitconfig /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
-      `command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && ${globalPackageIsVersion("@anthropic-ai/claude-agent-sdk", CLAUDE_AGENT_SDK_VERSION)} && ${globalPackageIsVersion("@cursor/sdk", CURSOR_SDK_VERSION)} || sudo npm install -g @anthropic-ai/claude-code @anthropic-ai/claude-agent-sdk@${CLAUDE_AGENT_SDK_VERSION} @openai/codex@0.146.0 agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@${CURSOR_SDK_VERSION} || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }`,
+      `command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && ${globalPackageIsVersion("@anthropic-ai/claude-code", CLAUDE_CODE_VERSION)} && ${globalPackageIsVersion("@anthropic-ai/claude-agent-sdk", CLAUDE_AGENT_SDK_VERSION)} && ${globalPackageIsVersion("@cursor/sdk", CURSOR_SDK_VERSION)} || sudo npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} @anthropic-ai/claude-agent-sdk@${CLAUDE_AGENT_SDK_VERSION} @openai/codex@0.146.0 agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@${CURSOR_SDK_VERSION} || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }`,
       `command -v opencode >/dev/null 2>&1 && ${globalPackageIsVersion("@opencode-ai/sdk", OPENCODE_VERSION)} || sudo npm install -g opencode-ai@${OPENCODE_VERSION} @opencode-ai/sdk@${OPENCODE_VERSION} || { echo "SEEDRUN-FAILED:opencode-cli"; exit 1; }`,
       `command -v code-server >/dev/null 2>&1 || { github_release_download coder/code-server v${CODE_SERVER_VERSION} code-server-${CODE_SERVER_VERSION}-amd64.rpm /tmp/code-server.rpm && sudo rpm -Uvh /tmp/code-server.rpm && rm -f /tmp/code-server.rpm; } || { echo "SEEDRUN-FAILED:code-server"; exit 1; }`,
       'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',

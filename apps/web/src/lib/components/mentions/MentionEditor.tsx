@@ -17,9 +17,11 @@ import {
   buildSkillPattern,
   extractEditableText,
   isEditorValueEmpty,
+  isInsertedTokenTrigger,
   normalizeMentionText,
   placeCursorAtEnd,
   renderEditorChipHtml,
+  type InsertedToken,
 } from "./mentionEditorUtils";
 import { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
 import { countLinkUrls } from "./linkChipUtils";
@@ -35,7 +37,7 @@ import {
   type MentionPopupPlacement,
 } from "./mentionPopupPosition";
 import { cn } from "@eva/ui";
-import { UserProfileHoverCardBody } from "@eva/shared";
+import { UserProfileHoverCardBody } from "@eva/shared/user-initials";
 import type { AIProvider, Id } from "@eva/backend";
 
 // The inline AI suggestion renders as an `::after` pseudo-element fed by
@@ -130,8 +132,7 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   /**
    * `caret` (default) puts a compact list next to the caret. `panel` renders a
    * full-width sheet above the nearest `[data-mention-popup-anchor]` ancestor
-   * (the composer card) with a real search field. Only safe outside a focus
-   * trap, so modals and comment boxes stay on `caret`.
+   * (the composer card).
    */
   popupLayout?: MentionPopupLayout;
   mentionPopupTitle?: string;
@@ -203,16 +204,14 @@ function defaultRenderSlashItem(
 }
 
 /**
- * Every whitespace-separated word has to appear somewhere in the label or
- * description. Word-wise rather than substring so a multi-word query typed into
- * the panel's search field still finds `eva-feature-demo` from "eva feature".
+ * Substring match against the label or description. A query can never contain
+ * whitespace — a space ends the `@`/`/` trigger — so one substring is enough.
  */
-function matchesAllWords(item: MentionItem, query: string): boolean {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return true;
-  const haystack =
-    `${item.label} ${item.description ?? ""}`.toLowerCase();
-  return words.every((word) => haystack.includes(word));
+function matchesQuery(item: MentionItem, query: string): boolean {
+  const needle = query.toLowerCase();
+  if (needle.length === 0) return true;
+  const haystack = `${item.label} ${item.description ?? ""}`.toLowerCase();
+  return haystack.includes(needle);
 }
 
 function isValidTrigger(value: string, triggerIndex: number): boolean {
@@ -283,8 +282,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   onLargeTextPaste,
   renderItem = defaultRenderItem,
   renderSlashItem = defaultRenderSlashItem,
-  filterItem = matchesAllWords,
-  filterSlashItem = matchesAllWords,
+  filterItem = matchesQuery,
+  filterSlashItem = matchesQuery,
   emptySlashContent,
   popupLayout = "caret",
   mentionPopupTitle = "Data",
@@ -310,13 +309,11 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   const editorRef = useRef<HTMLDivElement>(null);
   const [trigger, setTrigger] = useState<TriggerState>(CLOSED_TRIGGER);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  // Panel layout only: the search field owns the filter once the picker opens,
-  // seeded from whatever was typed after the trigger. Kept out of `trigger` so
-  // list data arriving from Convex mid-search cannot reset it.
-  const [search, setSearch] = useState("");
-  const triggerOpenRef = useRef(false);
-  /** Set when the pending `value` change came from typing in the editor. */
-  const editorTypedRef = useRef(false);
+  /**
+   * The chip the last accept inserted, so the trigger scan can tell it apart
+   * from a trigger the user is still typing. See `isInsertedTokenTrigger`.
+   */
+  const insertedTokenRef = useRef<InsertedToken | null>(null);
   const [popupPlacement, setPopupPlacement] =
     useState<MentionPopupPlacement | null>(null);
   const [mentionMap, setMentionMap] = useState<Map<string, string>>(() =>
@@ -455,6 +452,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     const visible = `${prefix}${item.label}`;
     const needsSpace = value.length > 0 && !/\s$/.test(value);
     const newValue = `${value}${needsSpace ? " " : ""}${visible} `;
+    insertedTokenRef.current = {
+      startIndex: value.length + (needsSpace ? 1 : 0),
+      token: visible,
+    };
     if (kind === "mention") {
       setMentionMap((prev) => {
         const next = new Map(prev);
@@ -510,26 +511,22 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     [mentionMap, skillMap, value, onValueChange],
   );
 
-  const pickerQuery = isPanel ? search : trigger.query;
-
   // Full filtered lists — popup scrolls; do not cap (callers need every
   // doc/skill/person available, not an alphabetical first-N subset).
   const activeSlashItems = slashItems
-    .filter((item) => filterSlashItem(item, pickerQuery))
+    .filter((item) => filterSlashItem(item, trigger.query))
     .sort((a, b) => a.label.localeCompare(b.label));
 
   const activeMentionItems = items
-    .filter((item) => filterItem(item, pickerQuery))
+    .filter((item) => filterItem(item, trigger.query))
     .sort((a, b) => a.label.localeCompare(b.label));
 
   const popupItems =
     trigger.kind === "slash" ? activeSlashItems : activeMentionItems;
 
   const closeTrigger = () => {
-    triggerOpenRef.current = false;
     setTrigger((prev) => (prev.isOpen ? CLOSED_TRIGGER : prev));
     setSelectedIndex(0);
-    setSearch("");
   };
 
   const insertMentionItem = (item: TItem) => {
@@ -537,6 +534,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     const before = value.slice(0, trigger.startIndex);
     const after = value.slice(trigger.startIndex + trigger.query.length + 1);
     const newValue = before + visible + " " + after;
+    insertedTokenRef.current = {
+      startIndex: trigger.startIndex,
+      token: visible,
+    };
     setMentionMap((prev) => {
       const next = new Map(prev);
       next.set(item.label, item.id);
@@ -552,6 +553,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     const before = value.slice(0, trigger.startIndex);
     const after = value.slice(trigger.startIndex + trigger.query.length + 1);
     const newValue = before + visible + " " + after;
+    insertedTokenRef.current = {
+      startIndex: trigger.startIndex,
+      token: visible,
+    };
     setSkillMap((prev) => {
       const next = new Map(prev);
       next.set(item.label, item.id);
@@ -573,27 +578,30 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   };
 
   useEffect(() => {
-    const typedInEditor = editorTypedRef.current;
-    editorTypedRef.current = false;
     const next = findActiveTrigger(
       value,
       items.length > 0,
       slashItems.length > 0 || emptySlashContent !== undefined,
     );
-    if (!next) {
-      triggerOpenRef.current = false;
+    // Released only once the chip stops being there — a healthy accept leaves no
+    // trigger at all for a pass or two, so releasing on that would drop the
+    // guard before the keystroke it exists to catch.
+    const inserted = insertedTokenRef.current;
+    if (
+      inserted !== null &&
+      !value.startsWith(inserted.token, inserted.startIndex)
+    ) {
+      insertedTokenRef.current = null;
+    }
+    // The chip the last accept inserted is not a trigger the user is typing,
+    // even when it reads like one because its trailing space was lost.
+    const isChipEcho =
+      next !== null &&
+      isInsertedTokenTrigger(value, next.startIndex, insertedTokenRef.current);
+    if (next === null || isChipEcho) {
       setTrigger((prev) => (prev.isOpen ? CLOSED_TRIGGER : prev));
       return;
     }
-    // Mirror the editor's query into the search field on every keystroke that
-    // reaches the editor. The panel's field autofocuses a frame after the
-    // trigger opens, so fast typing lands partly in each and both halves have
-    // to end up in the filter. Changes from anywhere else (list data arriving,
-    // draft sync) must not re-seed — that would wipe what was typed into it.
-    if (!triggerOpenRef.current || typedInEditor) {
-      setSearch(next.query);
-    }
-    triggerOpenRef.current = true;
     setTrigger(next);
     setSelectedIndex(0);
   }, [value, items.length, slashItems.length, emptySlashContent]);
@@ -631,15 +639,14 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     if (!el) return;
     const text = normalizeMentionText(extractEditableText(el));
     if (text !== value) {
-      editorTypedRef.current = true;
       onValueChange(text);
     }
   };
 
   /**
-   * Arrow/Enter/Tab/Escape while the picker is open. Shared by the editor (the
-   * keystrokes right after `@`/`/`, and the whole caret layout) and the panel's
-   * search field, so both navigate the same list identically.
+   * Arrow/Enter/Tab/Escape from the editor while the picker is open. The caret
+   * never leaves the editor — the picker has nothing focusable in it — so this
+   * is the only path that navigates the list.
    */
   const handlePickerKeyDown = (e: React.KeyboardEvent<HTMLElement>): boolean => {
     if (!trigger.isOpen) return false;
@@ -678,17 +685,6 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       return true;
     }
     return false;
-  };
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
-    if (handlePickerKeyDown(e)) return;
-    // Backspacing past the start of the search hands the caret back so the
-    // trigger character itself can be deleted.
-    if (e.key === "Backspace" && search.length === 0) {
-      e.preventDefault();
-      closeTrigger();
-      editorRef.current?.focus();
-    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -753,16 +749,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     }
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    // The panel's search field takes focus as soon as the picker opens; that is
-    // not the draft losing focus, so keep the picker (and the caller) intact.
-    const next = e.relatedTarget;
-    if (
-      next instanceof Element &&
-      next.closest("[data-mention-picker]") !== null
-    ) {
-      return;
-    }
+  const handleBlur = () => {
     if (trigger.isOpen) closeTrigger();
     if (chipHoverEnabled) clearChipHoverCard();
     onBlur?.();
@@ -922,8 +909,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   const isEmpty = isEditorValueEmpty(value);
 
   // Gated on the *unfiltered* list so a query that matches nothing shows "No
-  // matches" instead of unmounting the popup — which, in panel layout, would
-  // take the focused search field with it.
+  // matches" instead of unmounting the popup.
   const showPopup =
     trigger.isOpen &&
     (trigger.kind === "slash"
@@ -934,13 +920,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
 
   const sharedPopupProps = {
     title: popupTitle,
-    layout: popupLayout,
     selectedIndex,
-    query: pickerQuery,
-    onQueryChange: setSearch,
-    onQueryKeyDown: handleSearchKeyDown,
-    onDismiss: closeTrigger,
-    onRefocusEditor: () => editorRef.current?.focus(),
   };
 
   const pickerPopup =

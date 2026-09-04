@@ -12,6 +12,7 @@ import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
 import { launchChrome, startDesktopWithChrome } from "./desktop";
 import { VERCEL_EDITOR_INTERNAL_PORT } from "./previewProxy";
 import { assertActionSandboxAccess } from "../functions";
+import { buildHttpReadyProbeCommand } from "./httpReadyProbe";
 
 /** Starts or stops a code-server instance inside a sandbox. */
 export const toggleCodeServer = action({
@@ -71,7 +72,13 @@ export const toggleCodeServer = action({
 
         const ready = await execHandle(
           handle,
-          `for i in $(seq 1 20); do curl -fsS http://127.0.0.1:${listenPort}/ >/dev/null 2>&1 && echo ready && exit 0; sleep 0.5; done; echo not_ready`,
+          buildHttpReadyProbeCommand({
+            url: `http://127.0.0.1:${listenPort}/`,
+            attempts: 20,
+            sleepSec: 0.5,
+            onReady: "echo ready && exit 0",
+            onTimeout: "echo not_ready",
+          }),
           20,
         );
         const logs = await execHandle(
@@ -280,7 +287,7 @@ const TOO_LARGE_MARKER = "__EVA_TOO_LARGE__";
  * it (see getPreviewUrl in execution.ts), so we check `handle.state` — which is
  * fresh, since getSandboxHandle fetches with resume:false — before touching it.
  */
-async function authorizedRunningHandle(
+export async function authorizedRunningHandle(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
   sandboxId: string,

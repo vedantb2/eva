@@ -2,7 +2,7 @@ import { IconPlus, IconTerminal2 } from "@tabler/icons-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@eva/ui";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
 
-export const SANDBOX_RAIL_ICON_BUTTON_CLASS =
+const SANDBOX_RAIL_ICON_BUTTON_CLASS =
   "motion-press max-sm:hit-target flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40";
 
 export function SandboxTabBarTools({

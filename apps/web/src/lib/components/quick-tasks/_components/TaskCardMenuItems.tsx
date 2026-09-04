@@ -47,6 +47,7 @@ import {
   useAvailableAiModels,
   useTaskOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { ConfirmSkipHint, skipConfirmTitle } from "@/lib/confirm";
 
 type GroupedCodebase = FunctionReturnType<
   typeof api.githubRepos.listGroupedByCodebase
@@ -373,11 +374,13 @@ export function TaskCardMenuItems({
                   return (
                     <Item
                       key={app._id}
+                      title={skipConfirmTitle("Move")}
                       onSelect={() => {
                         onMove(app._id);
                       }}
                     >
                       {codebase.displayName}
+                      <ConfirmSkipHint />
                     </Item>
                   );
                 }
@@ -393,12 +396,14 @@ export function TaskCardMenuItems({
                       {availableApps.map((app) => (
                         <Item
                           key={app._id}
+                          title={skipConfirmTitle("Move")}
                           onSelect={(e) => {
                             e.preventDefault();
                             onMove(app._id);
                           }}
                         >
                           {app.appName}
+                          <ConfirmSkipHint />
                         </Item>
                       ))}
                     </SubContent>
@@ -419,27 +424,34 @@ export function TaskCardMenuItems({
         <IconClipboard size={16} />
         Copy title
       </Item>
-      <Item
-        onSelect={() => {
-          navigator.clipboard.writeText(
-            window.location.origin + window.location.pathname,
-          );
-        }}
-      >
-        <IconLink size={16} />
-        Copy task link
-      </Item>
+      {href ? (
+        /*
+         * The card hosting this menu sits in a list or on the board, so the
+         * current pathname is that list — not the task. Copy the card's own
+         * href (already the public display-form path) instead.
+         */
+        <Item
+          onSelect={() => {
+            void navigator.clipboard.writeText(window.location.origin + href);
+          }}
+        >
+          <IconLink size={16} />
+          Copy task link
+        </Item>
+      ) : null}
 
       <MenuSeparator />
 
       <Item
         className="text-destructive focus:text-destructive"
+        title={skipConfirmTitle("Delete")}
         onSelect={() => {
           onDelete();
         }}
       >
         <IconTrash size={16} />
         Delete
+        <ConfirmSkipHint />
       </Item>
     </>
   );

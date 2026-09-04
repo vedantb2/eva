@@ -25,7 +25,6 @@ import {
   ChatAttachmentPreview,
 } from "@/lib/components/chat/imageAttachments";
 import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
-import { ComposerStash } from "@/lib/components/chat/_components/ComposerStash";
 import {
   MentionTextarea,
   type MentionTextareaHandle,
@@ -41,8 +40,12 @@ import type {
 import { type SlashItem } from "@/lib/components/mentions";
 import { useComposerCompact } from "@/lib/components/chat/_components/useComposerCompact";
 
+// `whitespace-pre!` rather than `nowrap`: both keep the pill on one line, but
+// `nowrap` still collapses whitespace, and Chrome then eats the trailing space
+// that accepting a mention/skill inserts — the next keystroke landed against
+// the chip and re-opened the picker as if the trigger were still being typed.
 const COMPACT_EDITOR =
-  "flex min-h-9 max-h-9 min-w-0 w-auto flex-1 items-center self-center overflow-hidden whitespace-nowrap! rounded-none px-1 py-2 text-left leading-5 scrollbar-none transition-[min-height,padding] duration-[var(--motion-base)] focus-visible:outline-hidden";
+  "flex min-h-9 max-h-9 min-w-0 w-auto flex-1 items-center self-center overflow-hidden whitespace-pre! rounded-none px-1 py-2 text-left leading-5 scrollbar-none transition-[min-height,padding] duration-[var(--motion-base)] focus-visible:outline-hidden";
 const EXPANDED_EDITOR =
   "min-h-16 max-h-50 w-full self-stretch overflow-y-auto rounded-none px-4 pt-3.5 pb-1 text-left transition-[min-height,padding] duration-[var(--motion-base)] focus-visible:outline-hidden";
 
@@ -80,6 +83,7 @@ export function ComposerInputChrome({
   seedMentionMap,
   seedSkillMap,
   messageHistory,
+  allowEmptySubmit,
 }: {
   repoId: Id<"githubRepos">;
   repoBasePath: string;
@@ -109,6 +113,7 @@ export function ComposerInputChrome({
   seedMentionMap?: Map<string, string>;
   seedSkillMap?: Map<string, string>;
   messageHistory: string[];
+  allowEmptySubmit?: boolean;
 }) {
   const { textInput, attachments } = usePromptInputController();
   // `layoutId` is global unless a LayoutGroup namespaces it, and several
@@ -134,11 +139,6 @@ export function ComposerInputChrome({
         skillItems={skillItems}
         mentionRef={mentionRef}
         compact={compact}
-      />
-      <ComposerStash
-        repoId={repoId}
-        mentionRef={mentionRef}
-        disabled={isInputDisabled}
       />
     </m.div>
   );
@@ -178,6 +178,7 @@ export function ComposerInputChrome({
         disabled={isInputDisabled}
         isExecuting={isExecuting}
         hasPendingContext={hasPendingContext}
+        allowEmptySubmit={allowEmptySubmit}
       />
     </m.div>
   );
@@ -255,10 +256,12 @@ function ChatBodySubmit({
   disabled,
   isExecuting,
   hasPendingContext,
+  allowEmptySubmit,
 }: {
   disabled: boolean;
   isExecuting: boolean;
   hasPendingContext: boolean;
+  allowEmptySubmit?: boolean;
 }) {
   const { textInput, attachments } = usePromptInputController();
   const isEmpty =
@@ -266,7 +269,9 @@ function ChatBodySubmit({
 
   return (
     <PromptInputSubmit
-      disabled={disabled || (isEmpty && !hasPendingContext)}
+      disabled={
+        disabled || (isEmpty && !hasPendingContext && !allowEmptySubmit)
+      }
       className="size-9"
       title={isExecuting ? "Queue message" : "Send message"}
     />

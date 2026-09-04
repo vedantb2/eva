@@ -6,10 +6,17 @@ import {
   type TurnLeaseIdentity,
 } from "../runtime/turnLease.js";
 import { readTurnLeaseIdentity } from "./claimPendingTurnParse.js";
+import {
+  beginTurnCheckpoint,
+  resetTurnCheckpoint,
+} from "../runtime/turnCheckpoint.js";
+
+export type ClaimedInteractionMode = "default" | "plan";
 
 type ClaimedTurnBase = {
   prompt: string;
   attachmentUrls: string[];
+  interactionMode: ClaimedInteractionMode;
 };
 
 export type ClaimedTurn =
@@ -49,6 +56,7 @@ export function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
         (url): url is string => typeof url === "string",
       )
     : [];
+  const interactionMode: ClaimedInteractionMode = "default";
   const turnLease = readTurnLeaseIdentity(result);
   if (lifecycle === "durable" && turnLease === null) {
     throw new Error("Durable claimed turn did not include a lease identity");
@@ -61,6 +69,7 @@ export function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
       lifecycle: "durable",
       prompt: payload.prompt,
       attachmentUrls,
+      interactionMode,
       turnLease,
     };
   }
@@ -68,6 +77,7 @@ export function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
     lifecycle: "legacy",
     prompt: payload.prompt,
     attachmentUrls,
+    interactionMode,
     turnLease: null,
   };
 }
@@ -82,6 +92,7 @@ export function startClaimedTurn(turn: ClaimedTurn): void {
     throw new Error("Cannot start a claimed turn while another claim is active");
   }
   beginTurnOwnership("claim", turn.turnLease);
+  beginTurnCheckpoint();
 }
 
 /** Fences every real-turn completion through the ownership installed at start. */
@@ -99,6 +110,7 @@ export function appendClaimedTurnCompletion(args: JsonObject): void {
 /** Clears ownership between turns in a warm provider process. */
 export function finishClaimedTurn(): void {
   endTurnOwnership();
+  resetTurnCheckpoint();
 }
 
 /** Test-only lifecycle view; carries no provider or prompt data. */

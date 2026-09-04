@@ -27,7 +27,6 @@ import {
 import {
   callConvexWithRetry,
   callHarnessSkillCatalogReport,
-  fetchWithTimeout,
   type HarnessCommandReport,
 } from "../http/convexClient.js";
 import {
@@ -57,6 +56,7 @@ import {
   buildSdkOptions,
   loadSdk,
   readSdkPlanUsage,
+  sdkMessageJson,
   type SdkModule,
   type SdkUserMessage,
 } from "./claudeSdk.js";
@@ -68,11 +68,16 @@ import {
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import {
+  appendTurnCheckpoint,
+  beginTurnCheckpoint,
+} from "../runtime/turnCheckpoint.js";
+import {
   beginTurnOwnership,
   endTurnOwnership,
   getCurrentTurnLease,
 } from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
+import { ensureGithubToken } from "./githubToken.js";
 import type { JsonObject, JsonValue } from "../types.js";
 import { DaemonSupervisor } from "../runtime/daemonSupervisor.js";
 import {
@@ -185,6 +190,8 @@ type WarmRunner = {
   interrupt: () => Promise<void>;
   /** Reads the SDK's experimental plan-usage data; null when unavailable. */
   readUsage: () => Promise<ClaudeUsageResponseLike | null>;
+  /** Claude-native plan mode. No-ops when the SDK handle lacks the method. */
+  setPermissionMode: (mode: "plan" | "default") => Promise<void>;
 };
 
 type BackgroundAgentEntry = {
@@ -279,6 +286,7 @@ async function failTurnAndExit(error: string): Promise<never> {
       ...(RUN_ID ? { runId: RUN_ID } : {}),
     };
     appendClaimedTurnCompletion(completionArgs);
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
@@ -433,43 +441,12 @@ function createPromptStream(): {
 }
 
 /** Sessions may push git commits; refresh the installation token like the one-shot path. */
-async function ensureGithubToken(): Promise<void> {
-  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
-  try {
-    const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN,
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json",
-      }),
-    });
-    if (!res.ok) return;
-    const data = await readResponseJson(res);
-    const token = readGithubToken(data);
-    if (token) {
-      process.env.GITHUB_TOKEN = token;
-      process.env.GH_TOKEN = token;
-    }
-  } catch {
-    /* non-fatal */
-  }
-}
-
-function readGithubToken(data: JsonValue | null): string | null {
-  if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    return null;
-  }
-  const value = data.value;
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return null;
-  }
-  const payload: JsonObject = value;
-  return typeof payload.token === "string" ? payload.token : null;
+async function refreshGithubToken(): Promise<void> {
+  await ensureGithubToken({
+    convexUrl: CONVEX_URL,
+    convexToken: CONVEX_TOKEN,
+    repoId: REPO_ID,
+  });
 }
 
 /** Clears the per-turn accumulators so the next turn starts clean on the same query. */
@@ -991,17 +968,19 @@ async function failSyntheticTurn(error: string): Promise<void> {
       step.status = "complete";
     }
     const turnLease = getCurrentTurnLease();
+    const completionArgs = entityMutationArgs({
+      messageId,
+      success: false,
+      result: null,
+      error,
+      activityLog: serializeSteps(S.accumulatedSteps),
+      ...turnLease,
+    });
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
-      entityMutationArgs({
-        messageId,
-        success: false,
-        result: null,
-        error,
-        activityLog: serializeSteps(S.accumulatedSteps),
-        ...turnLease,
-      }),
+      completionArgs,
     );
   } catch {
     /* best-effort */
@@ -1033,6 +1012,7 @@ async function ensureSyntheticTurn(): Promise<void> {
     // A synthetic turn owns the heartbeat without occupying the claim slot;
     // a legacy synthetic turn carries no lease and must still heartbeat.
     beginTurnOwnership("provider", readTurnLeaseIdentity(result));
+    beginTurnCheckpoint();
     if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
       log("daemon: synthetic turn opened after lifecycle moved; ignoring");
       endTurnOwnership();
@@ -1085,6 +1065,7 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   // completion may immediately dequeue the next message, and a VM death after
   // that point erases anything not on origin (see turnPersist.ts).
   persistTurnWork();
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -1103,7 +1084,10 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   log("daemon: synthetic turn finalized success=" + success);
 }
 
-function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
+async function startRealAgentTurn(
+  turn: ClaimedTurn,
+  agentRunner: WarmRunner,
+): Promise<void> {
   // Do not drain the agent pump here: buffered post-result / background-agent
   // messages must stay queued so the main loop can open a synthetic turn (or
   // attribute them into this real turn once it is live).
@@ -1117,6 +1101,7 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
   beginWatchedTurn();
+  await agentRunner.setPermissionMode("default");
   agentRunner.push(turn.prompt);
   S.activeAttemptStartedAt = agentTurnStartedAt;
   agentTurnOutput = "";
@@ -1249,7 +1234,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
     if (supervisor.currentTurn === null && supervisor.pendingClaim !== null) {
       const turn = supervisor.takeClaim();
       if (turn === null) continue;
-      startRealAgentTurn(turn, agentRunner);
+      await startRealAgentTurn(turn, agentRunner);
       continue;
     }
 
@@ -1396,7 +1381,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
     if (supervisor.pendingClaim !== null && supervisor.currentTurn === null) {
       const parked = supervisor.takeClaim();
       if (parked === null) continue;
-      startRealAgentTurn(parked, agentRunner);
+      await startRealAgentTurn(parked, agentRunner);
     }
   }
 }
@@ -1464,11 +1449,10 @@ function createWarmAgentRunner(
   void (async () => {
     try {
       for await (const raw of query) {
-        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-          continue;
-        }
-        noteHarnessInitMessage(raw, query);
-        pending.push(raw);
+        const message = sdkMessageJson(JSON.stringify(raw));
+        if (message === null) continue;
+        noteHarnessInitMessage(message, query);
+        pending.push(message);
         wakeWaiters();
       }
     } catch (error) {
@@ -1517,6 +1501,22 @@ function createWarmAgentRunner(
     log("daemon: interrupt unavailable on SDK query handle");
   };
 
+  const setPermissionMode = async (
+    mode: "plan" | "default",
+  ): Promise<void> => {
+    if (typeof query.setPermissionMode !== "function") {
+      log("daemon: setPermissionMode unavailable on SDK query handle");
+      return;
+    }
+    try {
+      await query.setPermissionMode(mode === "plan" ? "plan" : "default");
+      log("daemon: permission mode set to " + mode);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log("daemon: setPermissionMode failed — " + message);
+    }
+  };
+
   const readUsage = (): Promise<ClaudeUsageResponseLike | null> =>
     readSdkPlanUsage(query);
 
@@ -1528,6 +1528,7 @@ function createWarmAgentRunner(
     stopTask,
     interrupt,
     readUsage,
+    setPermissionMode,
   };
 }
 
@@ -1623,7 +1624,7 @@ export async function runSdkDaemon(): Promise<void> {
     process.exit(1);
   }
   startStreamingLoops();
-  await ensureGithubToken();
+  await refreshGithubToken();
 
   // Session mode establishes/continues the Claude session id used for resume.
   const sessionMode = prepareClaudeSessionState();
@@ -1657,14 +1658,20 @@ export async function runSdkDaemon(): Promise<void> {
     // shutting down through the finally block below.
     persistTurnWork();
     try {
-      await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+      const completionArgs: JsonObject = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
         activityLog: serializeSteps(S.accumulatedSteps),
         ...getCurrentTurnLease(),
-      });
+      };
+      appendTurnCheckpoint(completionArgs);
+      await callConvexWithRetry(
+        "mutation",
+        COMPLETION_MUTATION ?? "",
+        completionArgs,
+      );
     } catch {
       /* ignore */
     }

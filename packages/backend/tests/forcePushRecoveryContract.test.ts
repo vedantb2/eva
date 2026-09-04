@@ -65,13 +65,89 @@ describe("the force-push recovery cannot silently discard remote commits", () =>
     const callers = convexFiles().filter(
       (path) => path !== "_sandbox_runtime/git.ts" && callsHelper(path),
     );
+    // The automatic publish path has its own, narrower leased push (pinned
+    // below); it must not reach for the tracking-ref lease this helper uses.
     expect(
       callers,
-      "a force-push must never become part of an automatic publish path",
+      "the user-confirmed force-push must not become part of an automatic publish path",
     ).toEqual(["_sandbox_runtime/sessions.ts"]);
     expect(definitionBody(sandboxSessions, "performForcePushBranch")).toContain(
       `${HELPER}(`,
     );
+  });
+});
+
+/**
+ * The automatic publish may replace origin/<branch> too, but only for an eva/
+ * branch whose remote tip the local branch itself once pointed at — the
+ * sandbox rewrote history it already held. Each guard below is what keeps that
+ * from ever discarding a commit the sandbox never held. The decision rests on
+ * the reflog alone: a file-count classifier misread quick task 220 (2–3 Sep
+ * 2026, 118 foreign commits on GitHub vs one local) as a rewrite and refused
+ * a publish that a merge completes.
+ */
+describe("the automatic publish only replaces the sandbox's own old history", () => {
+  const sync = functionBody(
+    sandboxGit,
+    "async function synchronizeBranchForPublish(",
+  );
+  const push = functionBody(
+    sandboxGit,
+    "export async function pushBranchToOrigin(",
+  );
+
+  test("the replace is offered only when the remote tip is in the local reflog, and only for eva/ branches", () => {
+    const reflogAt = sync.indexOf("localBranchReflogShas(sandbox, branchName)");
+    const ownHistoryAt = sync.indexOf("rewrittenBranchIsOwnHistory(");
+    const ownedAt = sync.indexOf("isEvaOwnedBranch(branchName)");
+    const replaceAt = sync.indexOf("replaceRemoteTip: remoteTip");
+    const mergeAt = sync.indexOf("git merge --no-edit ${quotedRemoteRef}");
+    expect(reflogAt, "the reflog read is gone").toBeGreaterThan(-1);
+    expect(ownHistoryAt, "the own-history check is gone").toBeGreaterThan(reflogAt);
+    expect(ownedAt, "the eva/ ownership guard is gone").toBeGreaterThan(ownHistoryAt);
+    expect(replaceAt, "the replace is no longer offered").toBeGreaterThan(ownedAt);
+    // The refusal keeps the banner-matched wording; it is the only refusal left.
+    expect(sync).toContain("rewrittenBranchPublishError(branchName)");
+    expect(sync).not.toContain("remote-holds-foreign-commits");
+    // A foreign remote tip is merged, never refused and never forced: the merge
+    // must follow the own-history branch, and no file-count classifier may sit
+    // in front of either.
+    expect(replaceAt).toBeLessThan(mergeAt);
+    expect(sync).not.toContain("divergedPublishLooksLikeRewrite");
+    expect(sync).not.toContain("git diff --name-only");
+  });
+
+  test("a missing reflog merges instead of guessing", () => {
+    const reflog = functionBody(
+      sandboxGit,
+      "async function localBranchReflogShas(",
+    );
+    expect(reflog).toContain("git reflog show --format=%H");
+    expect(reflog).toContain("return [];");
+  });
+
+  test("the push is leased on the exact verified sha, never a bare force", () => {
+    expect(push).toContain(
+      "--force-with-lease=${quote([`refs/heads/${branchName}:${replaceRemoteTip}`])}",
+    );
+    expect(push).not.toMatch(/--force(?![-\w])/);
+    expect(push).not.toMatch(/git push[^\n]*\s-f\b/);
+    // No lease unless the sync vouched for the replace.
+    const leaseAt = push.indexOf("replaceRemoteTip === undefined");
+    const pushAt = push.indexOf("git push ${lease}");
+    expect(leaseAt, "the lease is no longer conditional").toBeGreaterThan(-1);
+    expect(pushAt, "the push no longer carries the lease").toBeGreaterThan(leaseAt);
+    // A lease rejection re-syncs rather than failing the turn: the classifier
+    // tags "stale info" as non-fast-forward, and the push pipeline retries
+    // that tag by re-running the sync (which recomputes the lease).
+    expect(push).toContain('failure._tag === "GitNonFastForwardError"');
+    expect(push).toContain("while: isRetryablePushFailure");
+    expect(
+      functionBody(
+        readSource("_git/gitErrors.ts"),
+        "function isNonFastForwardPushMessage(",
+      ),
+    ).toContain('"stale info"');
   });
 });
 
@@ -94,7 +170,7 @@ describe("the recovery mutation guards which branch may be rewritten", () => {
       -1,
     );
     // A base branch must never be reachable through this path.
-    const branchGuardAt = mutation.indexOf('startsWith("eva/")');
+    const branchGuardAt = mutation.indexOf("isEvaOwnedBranch(");
     expect(branchGuardAt, "the eva/ branch guard is gone").toBeGreaterThan(-1);
     expect(branchGuardAt).toBeLessThan(scheduleAt);
     const sandboxGuardAt = mutation.indexOf('session.status !== "active"');

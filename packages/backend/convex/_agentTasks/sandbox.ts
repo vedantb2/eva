@@ -271,6 +271,60 @@ export const patchTaskDevServer = internalMutation({
 });
 
 /**
+ * Shared stop path for the user Stop button, the idle auto-stop sweep and the
+ * PR-merge webhook. Marks the task `"stopping"` then schedules provider
+ * teardown (mirrors requestSessionSandboxStop in _sessions/sandbox.ts).
+ */
+export async function requestTaskSandboxStop(
+  ctx: MutationCtx,
+  taskId: Id<"agentTasks">,
+): Promise<void> {
+  const task = await ctx.db.get(taskId);
+  if (!task || !task.repoId) return;
+
+  if (!task.sandboxId) {
+    // Nothing to stop — close immediately.
+    await ctx.db.patch(taskId, {
+      reviewTaskSandboxStatus: "closed",
+      updatedAt: Date.now(),
+    });
+    return;
+  }
+
+  if (task.reviewTaskSandboxStatus === "stopping") {
+    // Already stopping — but a previous finalize may have stalled (e.g. its
+    // action was killed while a racing resume held the VM). Re-issue the
+    // idempotent finalize so stopping again recovers a stuck `stopping` row
+    // instead of being a no-op that leaves it wedged forever.
+    await scheduleFinalizeStopTask(ctx, {
+      taskId,
+      sandboxId: task.sandboxId,
+      repoId: task.repoId,
+    });
+    return;
+  }
+
+  await scheduleFinalizeStopTask(ctx, {
+    taskId,
+    sandboxId: task.sandboxId,
+    repoId: task.repoId,
+  });
+
+  // Clear leftover start steps so stop does not re-show startup activity.
+  await clearSandboxStartupActivity(ctx.db, `task-sandbox-startup-${taskId}`);
+
+  // Stopping kills the paused turn, so any blocking AskUserQuestion can
+  // never be claimed — clear it or it hides the composer forever.
+  await clearPendingQuestionsForEntity(ctx.db, String(taskId));
+
+  // Keep sandboxId so we can resume the stopped sandbox later.
+  await ctx.db.patch(taskId, {
+    reviewTaskSandboxStatus: "stopping",
+    updatedAt: Date.now(),
+  });
+}
+
+/**
  * Stops the preview sandbox. Keeps `sandboxId` so the reviewer
  * can resume the same paused filesystem (DB state intact) on next start.
  *
@@ -292,36 +346,7 @@ export const stopTaskSandbox = authMutation({
     const hasAccess = await hasRepoAccess(ctx.db, task.repoId, ctx.userId);
     if (!hasAccess) throw new Error("No access to repository");
 
-    if (!task.sandboxId) {
-      // Nothing to stop — close immediately.
-      await ctx.db.patch(args.taskId, {
-        reviewTaskSandboxStatus: "closed",
-        updatedAt: Date.now(),
-      });
-      return null;
-    }
-
-    await scheduleFinalizeStopTask(ctx, {
-      taskId: args.taskId,
-      sandboxId: task.sandboxId,
-      repoId: task.repoId,
-    });
-
-    // Clear leftover start steps so stop does not re-show startup activity.
-    await clearSandboxStartupActivity(
-      ctx.db,
-      `task-sandbox-startup-${args.taskId}`,
-    );
-
-    // Stopping kills the paused turn, so any blocking AskUserQuestion can
-    // never be claimed — clear it or it hides the composer forever.
-    await clearPendingQuestionsForEntity(ctx.db, String(args.taskId));
-
-    // Keep sandboxId so we can resume the stopped sandbox later.
-    await ctx.db.patch(args.taskId, {
-      reviewTaskSandboxStatus: "stopping",
-      updatedAt: Date.now(),
-    });
+    await requestTaskSandboxStop(ctx, args.taskId);
 
     return null;
   },

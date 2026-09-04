@@ -59,6 +59,8 @@ function oldIsNonFastForwardPushError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
     lower.includes("non-fast-forward") ||
+    // The `--force-with-lease` variant: the leased sha is no longer the tip.
+    lower.includes("stale info") ||
     lower.includes("fetch first") ||
     (lower.includes("[rejected]") && lower.includes("failed to push"))
   );
@@ -100,6 +102,9 @@ const NON_FAST_FORWARD_MESSAGES = [
   "! [rejected] main -> main (non-fast-forward)",
   "hint: Updates were rejected because the remote contains work that you do not have locally. Integrate the remote changes before pushing again (fetch first).",
   "! [rejected]        eva/x -> eva/x\nerror: failed to push some refs to 'https://github.com/e/e.git'",
+  // A --force-with-lease rejection: only the "stale info" rule catches this
+  // one, because git names neither "non-fast-forward" nor "failed to push".
+  "! [rejected]        refs/heads/eva/x -> refs/heads/eva/x (stale info)",
 ];
 
 const MISSING_REMOTE_REF_MESSAGES = [
@@ -181,6 +186,27 @@ describe("classifyGitFailure tags each git failure once", () => {
       }),
     );
     expect(failure._tag).toBe("GitNetworkError");
+  });
+
+  test("a stale lease is retried by the push pipeline's predicate", () => {
+    // pushBranchToOrigin leases the push on the remote tip the sync observed,
+    // so a commit that lands in between is rejected with "stale info". That
+    // must earn another attempt: the retry re-syncs against the new tip.
+    const failure = classifyGitFailure(
+      new SandboxCommandFailedError({
+        message:
+          "Sandbox command failed (exit 1): ! [rejected] refs/heads/eva/x -> refs/heads/eva/x (stale info)",
+        exitCode: 1,
+        output:
+          "! [rejected] refs/heads/eva/x -> refs/heads/eva/x (stale info)",
+      }),
+    );
+    expect(failure._tag).toBe("GitNonFastForwardError");
+    // Mirrors `isRetryablePushFailure` in git.ts.
+    expect(
+      failure._tag === "GitNetworkError" ||
+        failure._tag === "GitNonFastForwardError",
+    ).toBe(true);
   });
 
   test("a thrown non-Error still classifies", () => {

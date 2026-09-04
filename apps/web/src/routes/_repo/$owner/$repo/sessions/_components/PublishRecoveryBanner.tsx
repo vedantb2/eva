@@ -14,6 +14,12 @@ import {
 } from "@eva/ui";
 import { IconAlertTriangle, IconUpload } from "@tabler/icons-react";
 import { catchMutationError } from "@/lib/utils/mutationToast";
+import {
+  ConfirmSkipHint,
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
 import type { SessionMessage } from "./useSessionSend";
 
 interface PublishRecoveryBannerProps {
@@ -38,6 +44,7 @@ export function PublishRecoveryBanner({
     null,
   );
   const forcePushBranch = useMutation(api.sessions.forcePushBranch);
+  const altHeld = useAltHeld();
 
   const newest = messages.length > 0 ? messages[messages.length - 1] : null;
   if (
@@ -85,10 +92,19 @@ export function PublishRecoveryBanner({
             variant="destructive"
             className="h-7 shrink-0 gap-1 px-2 text-xs"
             disabled={!isSandboxActive}
-            onClick={() => setConfirmOpen(true)}
+            title={skipConfirmTitle("Force-push branch")}
+            onClick={(event) =>
+              requestConfirm(
+                altHeld,
+                () => setConfirmOpen(true),
+                handleConfirm,
+                event,
+              )
+            }
           >
             <IconUpload className="size-3.5" />
             Force-push branch
+            <ConfirmSkipHint />
           </Button>
         ) : null}
       </div>

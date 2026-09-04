@@ -22,6 +22,11 @@ import { useQueryState } from "nuqs";
 import { branchParser } from "@/lib/search-params";
 import { ContextSidebarHeaderIconButton } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
 import {
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
+import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
@@ -54,6 +59,7 @@ export function TestingArenaSidebar({
 
   const [branch] = useQueryState("branch", branchParser);
   const [showTestAllModal, setShowTestAllModal] = useState(false);
+  const altHeld = useAltHeld();
   const [isTestingAll, setIsTestingAll] = useState(false);
   const lastCreateRequestIdRef = useRef(createRequestId ?? 0);
 
@@ -94,10 +100,18 @@ export function TestingArenaSidebar({
   return (
     <>
       <ContextSidebarHeaderIconButton
-        title="Test all documents"
+        title={skipConfirmTitle("Test all documents")}
         icon={IconAlertTriangle}
         className="text-warning"
-        onClick={() => setShowTestAllModal(true)}
+        onClick={() =>
+          requestConfirm(
+            altHeld,
+            () => setShowTestAllModal(true),
+            () => {
+              void handleTestAll();
+            },
+          )
+        }
       />
 
       <div className="flex-1">

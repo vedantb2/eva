@@ -74,6 +74,31 @@
       "rules": { "eva/no-value-block-in-try": "error" }
     },
     {
+      "files": ["packages/shared/src/index.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "react",
+                  "react-dom",
+                  "@eva/ui",
+                  "@eva/ui/*",
+                  "facehash",
+                  "convex-helpers/react",
+                  "convex-helpers/react/*",
+                  "./components/user-initials"
+                ],
+                "message": "The @eva/shared root barrel is bundled into Convex functions, so it must stay free of frontend code. Add a subpath export in packages/shared/package.json instead."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["packages/backend/**"],
       "rules": {
         "no-console": "off",

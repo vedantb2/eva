@@ -18,7 +18,6 @@ import { ThemeModeProvider } from "@/lib/components/ThemeModeProvider";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "@tanstack/react-router";
 import { ThemeProvider } from "../contexts/ThemeContext";
-import { TooltipProvider } from "@eva/ui";
 import { AuthLoadingScreen } from "./AuthLoadingScreen";
 import { WelcomeSetupDialog } from "./onboarding/WelcomeSetupDialog";
 import { convex } from "@/lib/convex";
@@ -137,13 +136,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <Navigate to="/" />
       </Unauthenticated>
       <Authenticated>
+        {/* TooltipProvider lives in `__root`, above the layers that render
+            outside this gate. */}
         <ThemeProvider>
-          <TooltipProvider>
-            {children}
-            <BlurPidEffect />
-            <PresenceHeartbeat />
-            <WelcomeSetupDialog />
-          </TooltipProvider>
+          {children}
+          <BlurPidEffect />
+          <PresenceHeartbeat />
+          <WelcomeSetupDialog />
         </ThemeProvider>
       </Authenticated>
     </>

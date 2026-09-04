@@ -4,6 +4,7 @@ import {
   IconLayoutDashboard,
   IconTrash,
 } from "@tabler/icons-react";
+import { ConfirmSkipHint, skipConfirmTitle } from "@/lib/confirm";
 
 /**
  * The artifact tile's actions, hosted in either menu surface. Right-click covers
@@ -35,9 +36,14 @@ export function ArtifactCardMenuItems({
         <IconExternalLink size={16} />
         Open in new tab
       </Item>
-      <Item className="text-destructive" onClick={onDelete}>
+      <Item
+        className="text-destructive"
+        onClick={onDelete}
+        title={skipConfirmTitle("Delete")}
+      >
         <IconTrash size={16} />
         Delete
+        <ConfirmSkipHint />
       </Item>
     </>
   );

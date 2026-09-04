@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Id } from "@eva/backend";
 import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import {
   Button,
   Dialog,
@@ -37,6 +37,11 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
 
 interface QueuedMessageItem {
   id: Id<"queuedMessages">;
@@ -198,6 +203,7 @@ function SortableQueuedItem({
           {onDeleteClick ? (
             <QueueItemAction
               aria-label="Delete queued message"
+              title={skipConfirmTitle("Delete queued message")}
               onClick={() => onDeleteClick(item)}
             >
               <IconTrash size={14} />
@@ -211,8 +217,9 @@ function SortableQueuedItem({
 
 /**
  * Pending-message queue flush above the composer on sandbox chat pages
- * (sessions, quick tasks, projects). Narrower inset bar with square bottom
- * corners so it blends into the input card — same idea as underCardLeading.
+ * (sessions, quick tasks, projects). Fills the dock column in ComposerStash
+ * (which insets it) with square bottom corners so it blends into the input
+ * card — same idea as underCardLeading.
  */
 export function QueuedMessagesPanel({
   items,
@@ -234,6 +241,20 @@ export function QueuedMessagesPanel({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const altHeld = useAltHeld();
+
+  const deleteQueued = async (item: QueuedMessageItem) => {
+    if (!onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(item.id);
+      setDeletingItem(null);
+    } catch (error) {
+      setIsDeleting(false);
+      throw error;
+    }
+    setIsDeleting(false);
+  };
 
   const editingId = editingItem?.id ?? null;
   if (editingId !== draftForId) {
@@ -272,9 +293,10 @@ export function QueuedMessagesPanel({
 
   return (
     <>
-      {/* Flush above the composer: narrower inset bar, square bottom so it
-          blends into the input card (mirrors underCardLeading below). */}
-      <Queue className="mx-auto mb-0 w-[calc(100%-1.5rem)] rounded-b-none rounded-t-surface bg-muted/50 shadow-none">
+      {/* Flush above the composer: fills the dock column in ComposerStash,
+          which owns the inset, with a square bottom so it blends into the
+          input card (mirrors underCardLeading below). */}
+      <Queue className="w-full rounded-b-none rounded-t-surface bg-muted/50 shadow-none">
         <QueueSection defaultOpen>
           <QueueSectionTrigger>
             <QueueSectionLabel count={items.length} label={label} />
@@ -298,7 +320,18 @@ export function QueuedMessagesPanel({
                       draggable={draggable}
                       renderContent={renderContent}
                       onEditClick={onEdit ? setEditingItem : undefined}
-                      onDeleteClick={onDelete ? setDeletingItem : undefined}
+                      onDeleteClick={
+                        onDelete
+                          ? (item) =>
+                              requestConfirm(
+                                altHeld,
+                                () => setDeletingItem(item),
+                                () => {
+                                  void deleteQueued(item);
+                                },
+                              )
+                          : undefined
+                      }
                       onMoveToFront={onReorder ? handleMoveToFront : undefined}
                     />
                   ))}
@@ -381,19 +414,9 @@ export function QueuedMessagesPanel({
             <Button
               variant="destructive"
               disabled={isDeleting || !deletingItem || !onDelete}
-              onClick={async () => {
-                if (!deletingItem || !onDelete) {
-                  return;
-                }
-                setIsDeleting(true);
-                try {
-                  await onDelete(deletingItem.id);
-                  setDeletingItem(null);
-                } catch (error) {
-                  setIsDeleting(false);
-                  throw error;
-                }
-                setIsDeleting(false);
+              onClick={() => {
+                if (!deletingItem) return;
+                void deleteQueued(deletingItem);
               }}
             >
               Delete

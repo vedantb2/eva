@@ -50,7 +50,9 @@ import {
   snapshotBuildFields,
   sessionDaemonStateFields,
   turnFields,
+  proposedPlanFields,
   agentUsageLimitFields,
+  logFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -171,15 +173,19 @@ const schema = defineSchema({
     .index("by_repo_open", ["repoId", "open"])
     .index("by_open_lease", ["open", "leaseExpiresAt"])
     .index("by_workflow", ["workflowId"]),
-  // Latest agent plan usage-limit reading per (repo, provider, account),
-  // upserted by the sandbox callback at the end of every turn
-  // (usageLimits:report). Plan limits are per connected account, so a repo run
-  // on two Claude accounts keeps a row for each; the trailing optional id also
-  // carries the "shared team credential" row, whose account is absent.
-  agentUsageLimits: defineTable(agentUsageLimitFields).index(
-    "by_repo_provider_account",
-    ["repoId", "provider", "providerAccountId"],
-  ),
+  proposedPlans: defineTable(proposedPlanFields)
+    .index("by_session", ["sessionId"])
+    .index("by_session_and_capture_key", ["sessionId", "captureKey"])
+    .index("by_message", ["messageId"]),
+  // Latest agent plan usage-limit reading per credential, upserted by the
+  // sandbox callback at the end of every turn (usageLimits:report). Plan limits
+  // belong to the credential, not the repo it ran on, so a user with two Claude
+  // accounts keeps a row for each and the shared team credential keeps one per
+  // team. Legacy per-repo rows still sit in the by_provider_account range and
+  // are filtered out on read — see `_usageLimits/rows.ts`.
+  agentUsageLimits: defineTable(agentUsageLimitFields)
+    .index("by_provider_account", ["provider", "providerAccountId"])
+    .index("by_provider_team", ["provider", "teamId"]),
   backgroundProcesses: defineTable(backgroundProcessFields)
     .index("by_session_and_status", ["sessionId", "status"])
     .index("by_session_and_key", ["sessionId", "key"]),
@@ -403,15 +409,7 @@ const schema = defineSchema({
     .index("by_automation_and_status", ["automationId", "status"])
     .index("by_repo", ["repoId"]),
 
-  logs: defineTable({
-    entityType: v.string(),
-    entityId: v.string(),
-    entityTitle: v.string(),
-    rawResultEvent: v.optional(v.string()),
-    repoId: v.id("githubRepos"),
-    projectId: v.optional(v.id("projects")),
-    createdAt: v.number(),
-  })
+  logs: defineTable(logFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_created", ["repoId", "createdAt"])
     .index("by_entity_type", ["entityType"])

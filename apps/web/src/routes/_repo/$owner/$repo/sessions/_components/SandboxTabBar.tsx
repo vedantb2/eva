@@ -104,6 +104,12 @@ function isAgentBrowsingActive(agentBrowsingAt: number | undefined): boolean {
   return Date.now() - agentBrowsingAt < AGENT_BROWSING_LOCK_TTL_MS;
 }
 
+/** `?mockAgentBrowsing` lights the Browser-tab beam without a live lock. */
+function mockAgentBrowsing(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).has("mockAgentBrowsing");
+}
+
 export function SandboxTabBar({
   activeTab,
   onTabChange,
@@ -150,7 +156,8 @@ export function SandboxTabBar({
 
   const tabDescriptors = buildSandboxTabDescriptors({
     baseTabs: tabs,
-    showBrowserActivity: isAgentBrowsingActive(agentBrowsingAt),
+    showBrowserActivity:
+      isAgentBrowsingActive(agentBrowsingAt) || mockAgentBrowsing(),
     showEditorTab: showEditorItem,
     showComputerTab: showDesktopItem,
     showFilesTab: showFiles,

@@ -57,6 +57,7 @@ export function buildSandboxTabDescriptors({
       icon: { kind: "component", Icon: tab.icon },
       indicator: live ? "activity" : undefined,
       indicatorLabel: live ? "Agent is browsing" : undefined,
+      beam: live,
     };
   });
 

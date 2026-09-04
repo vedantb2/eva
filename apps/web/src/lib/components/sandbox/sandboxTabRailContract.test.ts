@@ -9,6 +9,7 @@ const read = (path: string) => readFileSync(join(here, path), "utf8");
 const sessions = "../../../routes/_repo/$owner/$repo/sessions/_components";
 const descriptors = read(`${sessions}/sandboxTabDescriptors.ts`);
 const tabBar = read(`${sessions}/SandboxTabBar.tsx`);
+const tabTrigger = read(`${sessions}/SandboxTabTrigger.tsx`);
 const cycle = read("./useCycleSandboxTabHotkey.ts");
 const palette = read("./sandboxPaletteCommands.ts");
 const simpleView = read("../../hooks/useSimpleView.ts");
@@ -129,6 +130,19 @@ describe("simple view hides exactly the tabs it cannot resolve", () => {
   test("the palette drops its non-tab commands in simple view", () => {
     // New Preview and the terminals have no simple-view home to open into.
     expect(palette).toContain("if (!simpleView) {");
+  });
+});
+
+describe("the Browser tab reuses the composer beam while the agent browses", () => {
+  test("the descriptor lights beam with the live browsing flag", () => {
+    expect(descriptors).toContain("beam: live");
+  });
+
+  test("the trigger draws the colorful composer beam inside the chip", () => {
+    expect(tabTrigger).toContain("<BorderBeam");
+    expect(tabTrigger).toContain('colorVariant="colorful"');
+    expect(tabTrigger).toContain("absolute inset-0");
+    expect(tabTrigger).toContain("group-data-[state=active]:bg-card");
   });
 });
 

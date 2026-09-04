@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import {
+  BorderBeam,
   TabsTrigger,
   Tooltip,
   TooltipContent,
@@ -34,6 +35,12 @@ export interface SandboxTabDescriptor {
   indicator?: SandboxTabIndicator;
   /** Accessible name for the indicator dot. */
   indicatorLabel?: string;
+  /**
+   * Same colorful composer beam, drawn inside the trigger so the TabsList
+   * sliding pill still measures `.t-tab` (a wrapping `relative` host would
+   * become offsetParent and park the pill at 0,0).
+   */
+  beam?: boolean;
 }
 
 /* The chip: `TabsTrigger` already supplies `rounded-lg`, `motion-press`,
@@ -74,16 +81,36 @@ export function SandboxTabTrigger({
     <TabsTrigger
       value={tab.value}
       aria-label={labelHidden ? tab.label : undefined}
-      className={TAB_CLASS}
+      className={cn(TAB_CLASS, tab.beam && "group")}
       onClick={onReselect}
     >
-      <TabIcon icon={tab.icon} />
-      {labelHidden ? null : tab.label}
+      {tab.beam ? (
+        <>
+          <BorderBeam
+            active
+            colorVariant="colorful"
+            size="md"
+            className="pointer-events-none absolute inset-0 rounded-lg"
+          >
+            {null}
+          </BorderBeam>
+          {/* Same contract as composer: opaque sibling hides the conic
+              interior; `.beam` is inset -1px so only the ring peeks out. */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-lg bg-background group-data-[state=active]:bg-card"
+          />
+        </>
+      ) : null}
+      <span className="relative z-1 inline-flex items-center gap-1.5">
+        <TabIcon icon={tab.icon} />
+        {labelHidden ? null : tab.label}
+      </span>
       {tab.indicator ? (
         <span
           aria-label={tab.indicatorLabel}
           className={cn(
-            "size-1.5 shrink-0 rounded-full bg-primary",
+            "relative z-1 size-1.5 shrink-0 rounded-full bg-primary",
             labelHidden && "absolute right-0.5 top-0.5",
             tab.indicator === "activity" &&
               "animate-pulse ring-2 ring-primary/30",

@@ -21,7 +21,7 @@ import {
   mergeMentionItems,
   tokenizedToEditable,
 } from "@/lib/components/mentions";
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -181,6 +181,28 @@ export function ChatComposer({
     userId: message.userId,
   }));
 
+  const mutedBar = (stashButton: ReactNode) => (
+    <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center gap-0.5 rounded-b-surface bg-muted/70 px-2 py-0.5">
+      {underCardLeading ? (
+        <div className="min-w-0">{underCardLeading}</div>
+      ) : null}
+      {stashButton}
+      <div className="ml-auto min-w-0 shrink-0">
+        <ModelSelectWithTraits
+          value={model}
+          options={modelOptions}
+          onValueChange={setModel}
+          accounts={accounts}
+          accountId={accountId}
+          onAccountChange={onAccountChange}
+          traits={displayTraits}
+          onTraitsChange={onTraitsChange}
+          className="h-7 w-auto max-w-full justify-start border-0 bg-transparent px-2 text-xs font-normal text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="p-3 md:p-4 max-w-3xl mx-auto w-full">
       <AnimatePresence initial={false}>
@@ -197,11 +219,14 @@ export function ChatComposer({
       </AnimatePresence>
       {preInputContent}
       {isDraftLoading ? (
-        <div
-          aria-busy="true"
-          aria-label="Loading draft..."
-          className="pointer-events-none rounded-full bg-background opacity-50 min-h-12"
-        />
+        <>
+          <div
+            aria-busy="true"
+            aria-label="Loading draft..."
+            className="pointer-events-none rounded-full bg-background opacity-50 min-h-12"
+          />
+          {mutedBar(null)}
+        </>
       ) : (
         <PromptInputProvider initialInput={seed?.initialDisplay}>
           <ChatTypingLayer
@@ -267,6 +292,7 @@ export function ChatComposer({
                 />
               </>
             }
+            bar={mutedBar}
           >
             <ComposerInputChrome
               repoId={repoId}
@@ -289,24 +315,6 @@ export function ChatComposer({
           </ComposerStash>
         </PromptInputProvider>
       )}
-      <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center rounded-b-surface bg-muted/70 px-2 py-0.5">
-        {underCardLeading ? (
-          <div className="min-w-0">{underCardLeading}</div>
-        ) : null}
-        <div className="ml-auto min-w-0 shrink-0">
-          <ModelSelectWithTraits
-            value={model}
-            options={modelOptions}
-            onValueChange={setModel}
-            accounts={accounts}
-            accountId={accountId}
-            onAccountChange={onAccountChange}
-            traits={displayTraits}
-            onTraitsChange={onTraitsChange}
-            className="h-7 w-auto max-w-full justify-start border-0 bg-transparent px-2 text-xs font-normal text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
-          />
-        </div>
-      </div>
     </div>
   );
 }

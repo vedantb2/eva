@@ -442,9 +442,9 @@ export function PreviewIframeHost() {
             key={entry.key}
             className={cn(
               "absolute overflow-hidden",
-              // Letterbox bars when the guest is contained; fill panes stay
-              // opaque so a loading iframe does not flash the page behind.
-              logical ? "bg-muted" : "bg-background",
+              // Dark canvas so contain letterbox reads as bars, not leftover
+              // chrome — muted matches the title bar and hides the ratio.
+              logical ? "bg-black" : "bg-background",
               // Iframes swallow pointer events, so every overlay goes inert
               // for the duration of a gesture, not just the dragged one.
               live !== null ? "pointer-events-none" : "pointer-events-auto",

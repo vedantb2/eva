@@ -74,7 +74,7 @@ function PreviewMiniPlayerWindow({ entry }: { entry: PreviewMiniPlayerEntry }) {
         onExpand={expand}
         onClose={closePreviewMiniPlayer}
       />
-      <div className="relative min-h-0 flex-1 bg-muted">
+      <div className="relative min-h-0 flex-1 bg-black">
         <PreviewAnchor
           entryKey={entry.entryKey}
           group={entry.group}

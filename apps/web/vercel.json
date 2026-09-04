@@ -5,6 +5,7 @@
     }
   },
   "installCommand": "cd ../.. && HUSKY=0 pnpm install --frozen-lockfile --filter @eva/web...",
+  "buildCommand": "if [ -n \"$CONVEX_DEPLOY_KEY\" ]; then cd ../../packages/backend && pnpm run predeploy && npx convex deploy --cmd-url-env-var-name VITE_CONVEX_URL --cmd 'cd ../../apps/web && vite build'; else vite build; fi",
   "rewrites": [
     {
       "source": "/((?!assets/).*)",

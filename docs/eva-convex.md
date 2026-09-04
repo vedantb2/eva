@@ -32,14 +32,23 @@ Read this when touching `packages/backend` / Convex schema, queries, mutations, 
 
 ## Vercel production deploys
 
-Vercel production builds (`VERCEL_ENV=production`) auto-deploy the Convex backend before building the frontend, ensuring the web deploy never goes live against an old backend.
+Vercel production builds auto-deploy the Convex backend before building the frontend,
+ensuring the web deploy never goes live against an old backend. This follows the
+[official Convex+Vercel pattern](https://docs.convex.dev/production/hosting/vercel).
 
-**Required Vercel Production env var:**
-- `CONVEX_DEPLOY_KEY`: deploy key for `sensible-woodpecker-357` (Eva production)
+**Setup (Vercel dashboard → Environment Variables):**
 
-Preview/staging builds skip Convex deploy — they use the existing production backend or a preview deployment.
+1. Go to Convex dashboard → `sensible-woodpecker-357` (evalucom/eva production)
+2. Deployment Settings → Generate Production Deploy Key (needs `deployment:deploy` permission)
+3. In Vercel, add env var `CONVEX_DEPLOY_KEY` with the key value
+4. **Uncheck Preview and Development** — only Production should be checked
 
-Named data migrations are NOT part of this step; run them separately via `npx convex run migrations:<name>`.
+The `buildCommand` in `apps/web/vercel.json` runs `npx convex deploy --cmd '...'` when
+`CONVEX_DEPLOY_KEY` is present. Preview builds (without the key) skip Convex deploy
+and run `vite build` directly.
+
+Named data migrations are NOT part of this step; run them separately via
+`npx convex run migrations:<name>`.
 
 ## Migrations
 

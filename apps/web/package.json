@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/build.mjs",
+    "build": "vite build",
     "typecheck": "tsc -p tsconfig.json",
     "preview": "vite preview",
     "test": "vitest run",

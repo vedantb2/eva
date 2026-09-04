@@ -118,6 +118,7 @@ export function SandboxQuickOpenDialogs({
   const handleSelectFile = (relativePath: string) => {
     if (!loaded) return;
     void navigate({
+      to: ".",
       search: (prev) => ({
         ...prev,
         file: `${loaded.root}/${relativePath}`,

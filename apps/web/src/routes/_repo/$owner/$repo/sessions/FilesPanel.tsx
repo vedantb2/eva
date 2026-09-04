@@ -54,6 +54,7 @@ export function FilesPanel({
     // `pathname + '?file=/abs/path'`, which lands in `$sandboxTab` and the
     // unknown-tab fallback then sends the pane to Preview.
     void navigate({
+      to: ".",
       search: (prev) => ({ ...prev, file: `${root}/${relativePath}` }),
     });
     setShowContentSignal((n) => n + 1);

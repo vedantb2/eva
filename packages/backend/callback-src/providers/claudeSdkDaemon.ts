@@ -27,6 +27,7 @@ import {
 import {
   deliverCompletionWithMedia,
   extractResultEvent,
+  postClaimedTurnFailureCompletion,
   uploadAndAttachSandboxMedia,
 } from "../runtime/completion.js";
 import {
@@ -267,21 +268,10 @@ async function failTurnAndExit(error: string): Promise<never> {
   // outcome for the user, with the work published either way.
   persistTurnWork();
   try {
-    const completionArgs: JsonObject = {
-      [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
-      success: false,
-      result: null,
+    await postClaimedTurnFailureCompletion({
       error,
       activityLog: serializeSteps(S.accumulatedSteps),
-      ...(RUN_ID ? { runId: RUN_ID } : {}),
-    };
-    appendClaimedTurnCompletion(completionArgs);
-    appendTurnCheckpoint(completionArgs);
-    await callConvexWithRetry(
-      "mutation",
-      COMPLETION_MUTATION ?? "",
-      completionArgs,
-    );
+    });
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
   }

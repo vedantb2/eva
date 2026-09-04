@@ -47,10 +47,12 @@ import {
 } from "./runtime/heartbeats.js";
 import {
   appendDiagnosticTail,
-  buildErrorMessage,
   deliverCompletionWithMedia,
   extractResultEvent,
   hasToolActivity,
+  providerAttemptTimedOut,
+  providerAttemptWasInterrupted,
+  resolveProviderAttemptOutcome,
   writeDoneFile,
 } from "./runtime/completion.js";
 import {
@@ -210,50 +212,29 @@ try {
 
   if (await setFinalizingState()) process.exit(0);
 
+  const finalAttempt = {
+    code: finalCode,
+    terminatedBySignal: finalTerminatedBySignal,
+    output: firstAttempt.output,
+    timedOutForNoOutput: finalTimedOutForNoOutput,
+    timedOutForMaxRuntime: finalTimedOutForMaxRuntime,
+    timedOutForFirstEvent: finalTimedOutForFirstEvent,
+    timedOutForFirstAssistant: finalTimedOutForFirstAssistant,
+    timedOutAfterFirstText: finalTimedOutAfterFirstText,
+    timedOutForZombie: finalTimedOutForZombie,
+    toolStallErrorMessage: finalToolStallErrorMessage,
+  };
   // Cursor can flush partial assistant text while a SIGTERM/SIGKILL is tearing
   // down the process. extractResultEvent deliberately falls back to that text,
   // so without this guard an interrupted recording turn reported its
   // "recording now…" preamble as a successful final answer. Node reports a
   // direct signal with `code=null`; shells can translate it to 137/143. Keep
   // both forms so neither can masquerade as genuine completion.
-  const agentWasInterrupted =
-    finalTerminatedBySignal || finalCode === 137 || finalCode === 143;
-
-  const attemptEndedDueToTimeout =
-    finalTimedOutAfterFirstText ||
-    finalTimedOutForNoOutput ||
-    finalTimedOutForMaxRuntime ||
-    finalTimedOutForFirstEvent ||
-    finalTimedOutForFirstAssistant ||
-    finalTimedOutForZombie ||
-    Boolean(finalToolStallErrorMessage);
-
-  const runSucceededWithResult =
-    finalResultEvent != null &&
-    !finalResultEvent.isError &&
-    !agentWasInterrupted;
-
-  let errorValue: string | null = null;
-  if (finalResultEvent?.isError) {
-    errorValue = finalResultEvent.result;
-  } else if (
-    (!runSucceededWithResult && finalCode !== 0) ||
-    (attemptEndedDueToTimeout && !runSucceededWithResult)
-  ) {
-    errorValue = appendDiagnosticTail(
-      buildErrorMessage(
-        finalCode,
-        S.fatalHeartbeatErrorMessage,
-        finalToolStallErrorMessage,
-        finalTimedOutForMaxRuntime,
-        finalTimedOutForNoOutput,
-        finalTimedOutForFirstEvent,
-        finalTimedOutForFirstAssistant,
-        finalTimedOutAfterFirstText,
-        finalTimedOutForZombie,
-      ),
-    );
-  }
+  const agentWasInterrupted = providerAttemptWasInterrupted(finalAttempt);
+  const attemptEndedDueToTimeout = providerAttemptTimedOut(finalAttempt);
+  const { success: runSucceededWithResult, error: resolvedError } =
+    resolveProviderAttemptOutcome(finalAttempt, finalResultEvent);
+  let errorValue: string | null = resolvedError;
 
   // The final result text is delivered separately (rendered as the chat
   // message via `result`/`resultSummary`). If the last streamed "response"

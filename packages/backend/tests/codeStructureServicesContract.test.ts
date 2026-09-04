@@ -396,6 +396,43 @@ test("OOM score writes share writeOomScoreAdj", () => {
   );
 });
 
+test("provider attempt outcomes share resolveProviderAttemptOutcome", () => {
+  const service = read("callback-src/runtime/completion.ts");
+  expect(service).toContain("export function resolveProviderAttemptOutcome(");
+  expect(service).toContain("export function providerAttemptWasInterrupted(");
+  expect(read("callback-src/index.ts")).toContain(
+    "resolveProviderAttemptOutcome(",
+  );
+  expect(read("callback-src/providers/cursorSdkDaemon.ts")).toContain(
+    "resolveProviderAttemptOutcome(",
+  );
+  expect(read("callback-src/index.ts")).not.toContain(
+    "finalCode === 137 || finalCode === 143",
+  );
+});
+
+test("claimed-turn failures share postClaimedTurnFailureCompletion", () => {
+  const service = read("callback-src/runtime/completion.ts");
+  expect(service).toContain(
+    "export async function postClaimedTurnFailureCompletion(",
+  );
+  expect(read("callback-src/providers/claudeSdkDaemon.ts")).toContain(
+    "postClaimedTurnFailureCompletion(",
+  );
+  expect(read("callback-src/providers/cursorSdkDaemon.ts")).toContain(
+    "postClaimedTurnFailureCompletion(",
+  );
+});
+
+test("Cursor refresh uses decideCallbackRefresh", () => {
+  expect(read("callback-src/providers/callbackRefresh.ts")).toContain(
+    "export function decideCallbackRefresh(",
+  );
+  expect(read("callback-src/providers/cursorSdkDaemon.ts")).toContain(
+    "decideCallbackRefresh(",
+  );
+});
+
 test("deployment status reads share fetchLatestDeploymentStatus", () => {
   const service = read("convex/_github/deploymentSnapshot.ts");
   expect(service).toContain("export async function fetchLatestDeploymentStatus(");

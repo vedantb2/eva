@@ -68,7 +68,7 @@ describe("a successful turn always publishes", () => {
  */
 describe("a failed turn still publishes its work", () => {
   test.each([
-    ["failTurnAndExit", "COMPLETION_MUTATION"],
+    ["failTurnAndExit", "postClaimedTurnFailureCompletion"],
     ["failSyntheticTurn", "COMPLETE_SYNTHETIC_TURN_MUTATION"],
   ] as const)("claude %s persists before its completion", (fn, mutation) => {
     const body = functionBody(claudeSdkDaemon, `async function ${fn}(`);
@@ -86,9 +86,9 @@ describe("a failed turn still publishes its work", () => {
 
   /** Cursor runs each turn in a disposable worker: three failure reporters. */
   test.each([
-    ["failTurnAndExit", "COMPLETION_MUTATION"],
+    ["failTurnAndExit", "postClaimedTurnFailureCompletion"],
     ["executeClaimedTurn", "deliverCompletionWithMedia(completionArgs)"],
-    ["reportCursorTurnWorkerFailure", "COMPLETION_MUTATION"],
+    ["reportCursorTurnWorkerFailure", "postClaimedTurnFailureCompletion"],
   ] as const)("cursor %s persists before its completion", (fn, mutation) => {
     const body = functionBody(cursorSdkDaemon, `async function ${fn}(`);
     assertPersistsFirst(body, mutation, fn);

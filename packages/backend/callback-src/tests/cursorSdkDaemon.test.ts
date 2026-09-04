@@ -281,7 +281,7 @@ describe("the cursor daemon's per-turn ordering", () => {
       "async function executeClaimedTurn(turn: ClaimedTurn): Promise<void> {",
     );
     expect(finalize).toContain("appendClaimedTurnCompletion(completionArgs)");
-    expect(failAndExit).toContain("appendClaimedTurnCompletion(completionArgs)");
+    expect(failAndExit).toContain("postClaimedTurnFailureCompletion(");
     expect(runTurn).toContain("appendClaimedTurnCompletion(completionArgs)");
     const worker = functionBody(
       daemon,

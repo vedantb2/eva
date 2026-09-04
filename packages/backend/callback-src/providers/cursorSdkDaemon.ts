@@ -3,7 +3,6 @@ import { readFileSync, unlinkSync, writeFileSync } from "fs";
 import {
   CALLBACK_SCRIPT_FP,
   CLAIM_MUTATION,
-  COMPLETION_MUTATION,
   CURSOR_TURN_WORKER_LEASE_GENERATION,
   CURSOR_TURN_WORKER_LIFECYCLE,
   CURSOR_TURN_WORKER_PROMPT_FILE,
@@ -21,9 +20,10 @@ import { refreshDaemonGithubTokenFromEnv } from "./githubToken.js";
 import { serializeSteps } from "../parse/stepBudget.js";
 import {
   appendDiagnosticTail,
-  buildErrorMessage,
   deliverCompletionWithMedia,
   extractResultEvent,
+  postClaimedTurnFailureCompletion,
+  resolveProviderAttemptOutcome,
 } from "../runtime/completion.js";
 import {
   flushStreaming,
@@ -38,7 +38,6 @@ import {
 } from "../runtime/state.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
-import { appendTurnCheckpoint } from "../runtime/turnCheckpoint.js";
 import { getCurrentTurnLease } from "../runtime/turnLease.js";
 import {
   prepareCursorSessionState,
@@ -58,6 +57,7 @@ import {
   startDaemonDepositionFence,
   writeOomScoreAdj,
 } from "../runtime/daemonProcess.js";
+import { decideCallbackRefresh } from "./callbackRefresh.js";
 import { readCancelRequested } from "./claimPendingTurnParse.js";
 import {
   appendClaimedTurnCompletion,
@@ -292,46 +292,10 @@ export function buildTurnCompletion(attempt: ProviderAttemptResult): {
   success: boolean;
   error: string | null;
 } {
-  const resultEvent = extractResultEvent(attempt.output);
-  const attemptEndedDueToTimeout =
-    attempt.timedOutForMaxRuntime ||
-    attempt.timedOutForNoOutput ||
-    Boolean(attempt.toolStallErrorMessage);
-  // Same interruption guard as index.ts: Cursor can flush partial text while a
-  // SIGTERM/SIGKILL tears the process down, and shells translate a direct
-  // signal (code=null, terminatedBySignal) into exit 137/143 — none of those
-  // may masquerade as genuine completion.
-  const finalTerminatedBySignal = attempt.terminatedBySignal;
-  const finalCode = attempt.code;
-  const agentWasInterrupted =
-    finalTerminatedBySignal || finalCode === 137 || finalCode === 143;
-  const runSucceededWithResult =
-    resultEvent !== null && !resultEvent.isError && !agentWasInterrupted;
-  if (resultEvent?.isError) {
-    return { success: false, error: resultEvent.result };
-  }
-  if (
-    (!runSucceededWithResult && attempt.code !== 0) ||
-    (attemptEndedDueToTimeout && !runSucceededWithResult)
-  ) {
-    return {
-      success: false,
-      error: appendDiagnosticTail(
-        buildErrorMessage(
-          attempt.code,
-          S.fatalHeartbeatErrorMessage,
-          attempt.toolStallErrorMessage,
-          attempt.timedOutForMaxRuntime,
-          attempt.timedOutForNoOutput,
-          attempt.timedOutForFirstEvent,
-          attempt.timedOutForFirstAssistant,
-          attempt.timedOutAfterFirstText,
-          attempt.timedOutForZombie,
-        ),
-      ),
-    };
-  }
-  return { success: runSucceededWithResult, error: null };
+  return resolveProviderAttemptOutcome(
+    attempt,
+    extractResultEvent(attempt.output),
+  );
 }
 
 /** Reports one finished turn to the chat workflow (mirrors the one-shot completion). */
@@ -382,22 +346,9 @@ async function failTurnAndExit(error: string): Promise<never> {
   // committed work is still the user's work and this process is about to exit.
   persistTurnWork();
   try {
-    const completionArgs = entityMutationArgs({
-      success: false,
-      result: null,
-      error,
-      // The disposable worker owns the live steps. A null log tells Convex to
-      // preserve the last streaming snapshot when the worker cannot report.
-      activityLog: null,
-      ...(RUN_ID ? { runId: RUN_ID } : {}),
-    });
-    appendClaimedTurnCompletion(completionArgs);
-    appendTurnCheckpoint(completionArgs);
-    await callConvexWithRetry(
-      "mutation",
-      COMPLETION_MUTATION ?? "",
-      completionArgs,
-    );
+    // The disposable worker owns the live steps. A null log tells Convex to
+    // preserve the last streaming snapshot when the worker cannot report.
+    await postClaimedTurnFailureCompletion({ error, activityLog: null });
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
   }
@@ -450,17 +401,29 @@ function startClaimWatcher(): void {
   void (async () => {
     while (!daemonExiting) {
       if (callbackScriptWentStaleOnDisk()) callbackRefreshPending = true;
-      if (callbackRefreshPending) {
-        if (turnActive || pendingClaimedTurn !== null || cancelInFlight) {
-          if (!callbackRefreshDeferralLogged) {
-            callbackRefreshDeferralLogged = true;
-            log(
-              "cursor daemon: callback script updated on disk — deferring respawn until active work settles",
-            );
-          }
-          await sleep(PROMPT_POLL_INTERVAL_MS);
-          continue;
+      const refreshDecision = decideCallbackRefresh({
+        refreshPending: callbackRefreshPending,
+        watchedTurnActive: turnActive,
+        daemonTurnActive: false,
+        claimedTurnPending: pendingClaimedTurn !== null,
+        cancellationInFlight: cancelInFlight,
+        backgroundAgentCount: 0,
+        sdkMessagePending: false,
+        syntheticTurnOpening: false,
+      });
+      if (refreshDecision.action === "defer") {
+        if (!callbackRefreshDeferralLogged) {
+          callbackRefreshDeferralLogged = true;
+          log(
+            "cursor daemon: callback script updated on disk — deferring respawn until active work settles (" +
+              refreshDecision.blocker +
+              ")",
+          );
         }
+        await sleep(PROMPT_POLL_INTERVAL_MS);
+        continue;
+      }
+      if (refreshDecision.action === "exit") {
         log(
           "cursor daemon: callback script updated on disk — exiting for respawn",
         );
@@ -630,22 +593,9 @@ async function reportCursorTurnWorkerFailure(
   // The worker died too hard to publish its own work, so the supervisor does it
   // from the same working tree — durability before the failure completion.
   persistTurnWork();
-  const completionArgs = entityMutationArgs({
-    success: false,
-    result: null,
-    error,
-    // Convex falls back to the last streamed activity so a hard worker crash
-    // cannot erase the reasoning/tools the user already saw.
-    activityLog: null,
-    ...(RUN_ID ? { runId: RUN_ID } : {}),
-  });
-  appendClaimedTurnCompletion(completionArgs);
-  appendTurnCheckpoint(completionArgs);
-  await callConvexWithRetry(
-    "mutation",
-    COMPLETION_MUTATION ?? "",
-    completionArgs,
-  );
+  // Convex falls back to the last streamed activity so a hard worker crash
+  // cannot erase the reasoning/tools the user already saw.
+  await postClaimedTurnFailureCompletion({ error, activityLog: null });
 }
 
 /**

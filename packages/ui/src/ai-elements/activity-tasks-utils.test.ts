@@ -6,7 +6,6 @@ import {
   buildActivityRows,
   groupActivityRows,
   normalizeStep,
-  reasoningActivitySteps,
 } from "./activity-tasks-utils";
 
 function step(
@@ -228,40 +227,5 @@ describe("activitySegmentKey", () => {
     expect(keyed[1]).toBe("actions:id:toolu_a");
     expect(keyed[3]).toBe("actions:id:toolu_b");
     expect(keyed.slice(-2)[1]).toBe("actions:id:toolu_b");
-  });
-});
-
-describe("reasoningActivitySteps", () => {
-  it("keeps reasoning text and drops tool rows", () => {
-    expect(
-      reasoningActivitySteps([
-        step({ type: "reasoning", label: "Thought", detail: "Weighing it" }),
-        step({ type: "bash", label: "Ran command", detail: "ls" }),
-        step({ type: "read", label: "Read file", path: "a.ts" }),
-      ]).map((s) => s.detail),
-    ).toEqual(["Weighing it"]);
-  });
-
-  it("keeps legacy thinking rows that carry real text", () => {
-    expect(
-      reasoningActivitySteps([
-        step({ type: "thinking", label: "Thinking...", detail: "Hmm" }),
-        step({
-          type: "thinking",
-          label: "Thinking...",
-          detail: "Claude is reasoning...",
-        }),
-        step({ type: "thinking", label: "Generating response..." }),
-      ]).map((s) => s.detail),
-    ).toEqual(["Hmm"]);
-  });
-
-  it("drops reasoning steps with no thinking text", () => {
-    expect(
-      reasoningActivitySteps([
-        step({ type: "reasoning", label: "Thought", detail: "   " }),
-        step({ type: "reasoning", label: "Thought" }),
-      ]),
-    ).toEqual([]);
   });
 });

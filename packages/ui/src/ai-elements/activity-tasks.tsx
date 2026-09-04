@@ -35,10 +35,8 @@ import {
   type ActivitySegment,
   activityRowKey,
   activitySegmentKey,
-  activityStepKey,
   buildActivityRows,
   groupActivityRows,
-  reasoningActivitySteps,
 } from "./activity-tasks-utils";
 import {
   deriveActionGroupSummary,
@@ -198,33 +196,6 @@ function ActivityReasoningDisclosure({ step }: { step: ActivityStep }) {
       <ReasoningTrigger />
       {thoughts ? <ReasoningContent>{thoughts}</ReasoningContent> : null}
     </Reasoning>
-  );
-}
-
-/**
- * A turn's thinking with the rest of the timeline dropped: no tool, file or
- * todo rows, no overflow toggle, no "Worked for" wrapper. Simple view renders
- * this in place of {@link ActivityTasks} so the model's reasoning stays
- * visible while the mechanics stay hidden. Null when the turn never thought.
- */
-export function ActivityReasoningTrace({
-  steps,
-  className,
-}: {
-  steps: ActivityStep[];
-  className?: string;
-}) {
-  const reasoning = reasoningActivitySteps(steps);
-  if (reasoning.length === 0) return null;
-  return (
-    <div className={cn("space-y-1.5 text-sm", className)}>
-      {reasoning.map((step, i) => (
-        <ActivityReasoningDisclosure
-          key={activityStepKey(step, i)}
-          step={step}
-        />
-      ))}
-    </div>
   );
 }
 

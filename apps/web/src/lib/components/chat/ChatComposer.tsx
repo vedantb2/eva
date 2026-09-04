@@ -289,7 +289,7 @@ export function ChatComposer({
           </ComposerStash>
         </PromptInputProvider>
       )}
-      <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center rounded-b-surface bg-muted/70 px-2 py-1.5">
+      <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center rounded-b-surface bg-muted/70 px-2 py-0.5">
         {underCardLeading ? (
           <div className="min-w-0">{underCardLeading}</div>
         ) : null}

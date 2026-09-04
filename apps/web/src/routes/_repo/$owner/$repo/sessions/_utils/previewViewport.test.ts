@@ -2,11 +2,13 @@ import { describe, expect, test } from "vitest";
 import {
   clampPreviewViewportSize,
   migrateLegacyPreviewDevice,
+  parsePreviewContainSize,
   parsePreviewViewport,
   presetViewport,
   previewIframeScale,
   resizePreviewViewport,
   rotatePreviewViewport,
+  serializePreviewContainSize,
   serializePreviewViewport,
   snapshotFillViewport,
 } from "./previewViewport";
@@ -96,5 +98,17 @@ describe("preview viewport", () => {
   test("clamps area so a drag cannot explode memory", () => {
     const huge = clampPreviewViewportSize({ width: 3840, height: 3840 });
     expect(huge.width * huge.height).toBeLessThanOrEqual(3840 * 2160);
+  });
+
+  test("round-trips a contain size and rejects junk", () => {
+    expect(
+      parsePreviewContainSize(
+        serializePreviewContainSize({ width: 1280, height: 720 }),
+      ),
+    ).toEqual({ width: 1280, height: 720 });
+    expect(parsePreviewContainSize("nope")).toEqual({
+      width: 1280,
+      height: 800,
+    });
   });
 });

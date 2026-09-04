@@ -31,9 +31,9 @@ describe("the daemon claim poll is fast only when it has a reason to be", () => 
   test("it backs off when nothing is happening", () => {
     expect(dense).toContain("PROMPT_POLL_IDLE_INTERVAL_MS");
     expect(
-      constant(daemon, "PROMPT_POLL_IDLE_INTERVAL_MS"),
+      timing("idlePollIntervalMs"),
       "an idle poll must be materially cheaper than a mid-turn one",
-    ).toBeGreaterThan(constant(daemon, "PROMPT_POLL_INTERVAL_MS"));
+    ).toBeGreaterThan(timing("fastPollIntervalMs"));
   });
 
   test("every supervised work state keeps the fast cadence", () => {
@@ -61,7 +61,7 @@ describe("the daemon claim poll is fast only when it has a reason to be", () => 
       "Date.now()-lastIdleActivityAtMs<PROMPT_POLL_FAST_WINDOW_MS",
     );
     expect(
-      constant(daemon, "PROMPT_POLL_FAST_WINDOW_MS"),
+      timing("fastPollWindowMs"),
       "the window has to outlast a user typing their next message",
     ).toBeGreaterThanOrEqual(10_000);
   });
@@ -111,11 +111,14 @@ function sliceBetween(source: string, from: string, to: string): string {
   return source.slice(startAt, endAt);
 }
 
-/** A numeric top-level constant, underscores and all. */
-function constant(source: string, name: string): number {
-  const declaration = source.match(new RegExp(`const ${name} = ([\\d_]+);`));
-  expect(declaration, `${name} moved or was renamed`).not.toBeNull();
-  return Number(declaration?.[1].replaceAll("_", ""));
+/** Shared poll knobs from daemonProcess.ts. */
+function timing(
+  name: "fastPollIntervalMs" | "idlePollIntervalMs" | "fastPollWindowMs",
+): number {
+  const helper = readSource("callback-src/runtime/daemonProcess.ts");
+  const match = helper.match(new RegExp(`${name}:\\s*([\\d_]+)`));
+  expect(match, `${name} moved or was renamed`).not.toBeNull();
+  return Number((match?.[1] ?? "").replaceAll("_", ""));
 }
 
 /** Lets assertions span a prettier-wrapped call without pinning its layout. */

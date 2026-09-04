@@ -4,8 +4,6 @@ import {
   CALLBACK_SCRIPT_FP,
   CLAIM_MUTATION,
   COMPLETION_MUTATION,
-  CONVEX_TOKEN,
-  CONVEX_URL,
   CURSOR_TURN_WORKER_LEASE_GENERATION,
   CURSOR_TURN_WORKER_LIFECYCLE,
   CURSOR_TURN_WORKER_PROMPT_FILE,
@@ -15,12 +13,11 @@ import {
   ENTITY_ID_FIELD,
   MAX_TOTAL_RUNTIME_MS,
   MODEL,
-  REPO_ID,
   RUN_ID,
 } from "../config.js";
 import { evaMcpWorkerHandoffEnv } from "../evaMcp.js";
 import { callConvexWithRetry } from "../http/convexClient.js";
-import { ensureGithubToken } from "./githubToken.js";
+import { refreshDaemonGithubTokenFromEnv } from "./githubToken.js";
 import { serializeSteps } from "../parse/stepBudget.js";
 import {
   appendDiagnosticTail,
@@ -47,9 +44,14 @@ import {
 import type { JsonValue, ProviderAttemptResult } from "../types.js";
 import { log } from "../utils.js";
 import {
+  DAEMON_CLAIM_POLL_TIMING,
+  buildEntityMutationArgs,
   callbackBundleWentStale,
-  pidAlive,
+  claimDaemonPidfileBoot,
+  cleanOwnedDaemonMarkers,
+  readPidFromFile,
   sleep,
+  startDaemonDepositionFence,
 } from "../runtime/daemonProcess.js";
 import { readCancelRequested } from "./claimPendingTurnParse.js";
 import {
@@ -61,20 +63,17 @@ import {
   type ClaimedTurn,
 } from "./claimedTurnLifecycle.js";
 import { runCursorSdkAttempt } from "./cursorSdk.js";
-import {
-  resolveDaemonPaths,
-  resolveLegacySessionDaemonPaths,
-} from "./daemonPaths.js";
+import { resolveDaemonPaths } from "./daemonPaths.js";
 
 // Same knobs as the Claude/Codex daemons (see claudeSdkDaemon.ts for the
 // reasoning behind each): keep the sandbox warm for a whole work session, poll
 // the claim mutation fast while anything is in flight and back off when idle so
 // an idle daemon does not burn ~20 mutations/s for turns that never come.
-const IDLE_EXIT_MS = 45 * 60 * 1000;
-const FENCE_POLL_INTERVAL_MS = 5000;
-const PROMPT_POLL_INTERVAL_MS = 50;
-const PROMPT_POLL_IDLE_INTERVAL_MS = 1000;
-const PROMPT_POLL_FAST_WINDOW_MS = 30_000;
+const IDLE_EXIT_MS = DAEMON_CLAIM_POLL_TIMING.idleExitMs;
+const FENCE_POLL_INTERVAL_MS = DAEMON_CLAIM_POLL_TIMING.fencePollIntervalMs;
+const PROMPT_POLL_INTERVAL_MS = DAEMON_CLAIM_POLL_TIMING.fastPollIntervalMs;
+const PROMPT_POLL_IDLE_INTERVAL_MS = DAEMON_CLAIM_POLL_TIMING.idlePollIntervalMs;
+const PROMPT_POLL_FAST_WINDOW_MS = DAEMON_CLAIM_POLL_TIMING.fastPollWindowMs;
 const WATCHDOG_TICK_MS = 5000;
 // Outer bound on one claimed turn. `runCursorSdkAttempt` already enforces the
 // runtime cap and the silence kill itself (cancelling the run so the attempt
@@ -258,17 +257,13 @@ function spawnCursorTurnWorker(
 
 
 function readDaemonPidFile(): number {
-  try {
-    return Number(readFileSync(daemonPaths.pid, "utf8").trim());
-  } catch {
-    return Number.NaN;
-  }
+  return readPidFromFile(daemonPaths.pid);
 }
 
 function entityMutationArgs(
   fields: Record<string, JsonValue>,
 ): Record<string, JsonValue> {
-  return { [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "", ...fields };
+  return buildEntityMutationArgs(ENTITY_ID_FIELD, ENTITY_ID, fields);
 }
 
 /**
@@ -302,11 +297,7 @@ function resetTurnState(): void {
 
 /** Sessions may push git commits; refresh the installation token like the one-shot path. */
 async function refreshGithubToken(): Promise<void> {
-  await ensureGithubToken({
-    convexUrl: CONVEX_URL,
-    convexToken: CONVEX_TOKEN,
-    repoId: REPO_ID,
-  });
+  await refreshDaemonGithubTokenFromEnv();
 }
 
 /**
@@ -434,22 +425,10 @@ async function failTurnAndExit(error: string): Promise<never> {
 
 /** Removes marker files only while this process still owns the pidfile. */
 function cleanOwnedMarkers(): void {
-  if (readDaemonPidFile() !== process.pid) return;
-  const legacy =
-    ENTITY_ID_FIELD === "sessionId" ? resolveLegacySessionDaemonPaths() : null;
-  const targets = [
-    daemonPaths.pid,
-    daemonPaths.entity,
-    daemonPaths.opts,
-    ...(legacy ? [legacy.pid, legacy.entity, legacy.opts] : []),
-  ];
-  for (const path of targets) {
-    try {
-      unlinkSync(path);
-    } catch {
-      /* ignore */
-    }
-  }
+  cleanOwnedDaemonMarkers({
+    paths: daemonPaths,
+    includeLegacySessionPaths: ENTITY_ID_FIELD === "sessionId",
+  });
 }
 
 /**
@@ -760,46 +739,32 @@ export async function runCursorDaemon(): Promise<void> {
 
   // Single-daemon fence, part 1 (boot claim): a live rival owning the pidfile
   // wins, and this process exits without touching its markers.
-  const rivalPid = readDaemonPidFile();
-  if (
-    !Number.isNaN(rivalPid) &&
-    rivalPid !== process.pid &&
-    pidAlive(rivalPid)
-  ) {
+  const bootClaim = claimDaemonPidfileBoot({
+    paths: daemonPaths,
+    entityId: ENTITY_ID ?? "",
+    optsSig: DAEMON_OPTS_SIG,
+  });
+  if (bootClaim.status === "rival_alive") {
     log(
-      `cursor daemon: rival daemon pid=${rivalPid} already owns ${daemonPaths.pid} — exiting`,
+      `cursor daemon: rival daemon pid=${bootClaim.rivalPid} already owns ${daemonPaths.pid} — exiting`,
     );
     process.exit(0);
   }
-  writeFileSync(daemonPaths.pid, String(process.pid));
-  writeFileSync(daemonPaths.entity, ENTITY_ID ?? "");
-  writeFileSync(daemonPaths.opts, DAEMON_OPTS_SIG);
 
   // Single-daemon fence, part 2: a launch racing past the boot claim (or an
   // opts-mismatch respawn) overwrites the pidfile; the deposed daemon must exit
   // or it double-claims turns and flip-flops the shared streaming row. Deferred
   // while a turn is running so work is never killed mid-flight.
-  let deposedLogged = false;
-  const fence = setInterval(() => {
-    const owner = readDaemonPidFile();
-    if (owner === process.pid) {
-      deposedLogged = false;
-      return;
-    }
-    const ownerLabel = Number.isNaN(owner) ? "none" : String(owner);
-    if (turnActive) {
-      if (!deposedLogged) {
-        deposedLogged = true;
-        log(
-          `cursor daemon: deposed (pidfile owner=${ownerLabel}) — exiting after active turn`,
-        );
-      }
-      return;
-    }
-    log(`cursor daemon: deposed (pidfile owner=${ownerLabel}) — exiting`);
-    process.exit(0);
-  }, FENCE_POLL_INTERVAL_MS);
-  fence.unref?.();
+  startDaemonDepositionFence({
+    readOwnerPid: readDaemonPidFile,
+    hasActiveWork: () => turnActive,
+    pollIntervalMs: FENCE_POLL_INTERVAL_MS,
+    log,
+    logPrefix: "cursor daemon",
+    onDeposedIdle: () => {
+      process.exit(0);
+    },
+  });
 
   const preflightOk = await runPreflightHeartbeat();
   if (!preflightOk) {

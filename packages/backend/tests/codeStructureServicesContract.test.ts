@@ -9,21 +9,23 @@ function read(relative: string): string {
   return readFileSync(join(backendDir, relative), "utf8");
 }
 
-const callbackSources = [
-  "callback-src/index.ts",
-  "callback-src/providers/claudeSdkDaemon.ts",
-  "callback-src/providers/cursorSdkDaemon.ts",
-  "callback-src/providers/codexAppServerDaemon.ts",
-] as const;
-
 test("installation-token refresh lives only in githubToken.ts", () => {
   const service = read("callback-src/providers/githubToken.ts");
   expect(service).toContain("export async function fetchInstallationToken(");
   expect(service).toContain("github:getInstallationTokenAction");
-  for (const path of callbackSources) {
+  expect(service).toContain("export async function ensureGithubToken(");
+  expect(service).toContain(
+    "export async function refreshDaemonGithubTokenFromEnv(",
+  );
+  expect(read("callback-src/index.ts")).toContain("ensureGithubToken(");
+  for (const path of [
+    "callback-src/providers/claudeSdkDaemon.ts",
+    "callback-src/providers/cursorSdkDaemon.ts",
+    "callback-src/providers/codexAppServerDaemon.ts",
+  ] as const) {
     const source = read(path);
     expect(source, `${path} should call the shared helper`).toContain(
-      "ensureGithubToken(",
+      "refreshDaemonGithubTokenFromEnv(",
     );
     expect(source, `${path} re-inlined the Convex token action`).not.toContain(
       "github:getInstallationTokenAction",
@@ -238,4 +240,60 @@ test("callback daemons share sleep/pidAlive/stale-bundle checks", () => {
       "/tmp/eva-callback-fp",
     );
   }
+});
+
+test("callback daemons share pidfile claim, marker cleanup, and mutation args", () => {
+  const service = read("callback-src/runtime/daemonProcess.ts");
+  expect(service).toContain("export function claimDaemonPidfileBoot(");
+  expect(service).toContain("export function cleanOwnedDaemonMarkers(");
+  expect(service).toContain("export function buildEntityMutationArgs(");
+  expect(service).toContain("export function readPidFromFile(");
+  for (const path of [
+    "callback-src/providers/claudeSdkDaemon.ts",
+    "callback-src/providers/cursorSdkDaemon.ts",
+    "callback-src/providers/codexAppServerDaemon.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should claim via the shared helper`).toContain(
+      "claimDaemonPidfileBoot(",
+    );
+    expect(source, `${path} should clean markers via the shared helper`).toContain(
+      "cleanOwnedDaemonMarkers(",
+    );
+    expect(source, `${path} re-inlined pidfile writes`).not.toContain(
+      "writeFileSync(DAEMON_PID_FILE",
+    );
+    expect(source, `${path} re-inlined Number(readFileSync`).not.toContain(
+      "Number(readFileSync(",
+    );
+  }
+});
+
+test("callback daemons share GitHub token refresh from env", () => {
+  const service = read("callback-src/providers/githubToken.ts");
+  expect(service).toContain(
+    "export async function refreshDaemonGithubTokenFromEnv(",
+  );
+  for (const path of [
+    "callback-src/providers/claudeSdkDaemon.ts",
+    "callback-src/providers/cursorSdkDaemon.ts",
+    "callback-src/providers/codexAppServerDaemon.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should call the shared refresh`).toContain(
+      "refreshDaemonGithubTokenFromEnv(",
+    );
+    expect(source, `${path} re-inlined ensureGithubToken args`).not.toContain(
+      "convexUrl: CONVEX_URL",
+    );
+  }
+});
+
+test("deployment status reads share fetchLatestDeploymentStatus", () => {
+  const service = read("convex/_github/deploymentSnapshot.ts");
+  expect(service).toContain("export async function fetchLatestDeploymentStatus(");
+  expect(service).toContain("fetchLatestDeploymentStatus(");
+  const overview = read("convex/_github/prOverview.ts");
+  expect(overview).toContain("fetchLatestDeploymentStatus(");
+  expect(overview).not.toContain("listDeploymentStatuses(");
 });

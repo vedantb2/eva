@@ -1,15 +1,11 @@
-import { readFileSync, unlinkSync, writeFileSync } from "fs";
 import {
   CALLBACK_SCRIPT_FP,
   CLAIM_MUTATION,
-  CONVEX_TOKEN,
-  CONVEX_URL,
   DAEMON_OPTS_SIG,
   ENTITY_ID,
   ENTITY_ID_FIELD,
   MAX_TOTAL_RUNTIME_MS,
   MODEL,
-  REPO_ID,
   RUN_ID,
   SYSTEM_PROMPT,
   WORK_DIR,
@@ -17,7 +13,7 @@ import {
   normalizedCodexModel,
 } from "../config.js";
 import { callConvexWithRetry } from "../http/convexClient.js";
-import { ensureGithubToken } from "./githubToken.js";
+import { refreshDaemonGithubTokenFromEnv } from "./githubToken.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import { serializeSteps } from "../parse/stepBudget.js";
 import { getCodexAgentMessageText } from "../parse/toolSteps.js";
@@ -47,8 +43,12 @@ import {
 import type { JsonObject, JsonValue, SessionMode } from "../types.js";
 import { attemptElapsedMs, log } from "../utils.js";
 import {
+  DAEMON_CLAIM_POLL_TIMING,
+  buildEntityMutationArgs,
   callbackBundleWentStale,
-  pidAlive,
+  claimDaemonPidfileBoot,
+  cleanOwnedDaemonMarkers,
+  readPidFromFile,
   sleep,
 } from "../runtime/daemonProcess.js";
 import { readCancelRequested } from "./claimPendingTurnParse.js";
@@ -64,14 +64,11 @@ import {
   CodexAppServerClient,
   type AppServerNotification,
 } from "./codexAppServerClient.js";
-import {
-  resolveDaemonPaths,
-  resolveLegacySessionDaemonPaths,
-} from "./daemonPaths.js";
+import { resolveDaemonPaths } from "./daemonPaths.js";
 
-const IDLE_EXIT_MS = 45 * 60 * 1000;
-const POLL_INTERVAL_MS = 50;
-const FENCE_POLL_INTERVAL_MS = 5000;
+const IDLE_EXIT_MS = DAEMON_CLAIM_POLL_TIMING.idleExitMs;
+const POLL_INTERVAL_MS = DAEMON_CLAIM_POLL_TIMING.fastPollIntervalMs;
+const FENCE_POLL_INTERVAL_MS = DAEMON_CLAIM_POLL_TIMING.fencePollIntervalMs;
 const NO_EVENT_TIMEOUT_MS = 5 * 60 * 1000;
 
 type CodexDaemonTurn = { providerTurnId: string };
@@ -108,16 +105,11 @@ function nestedId(value: JsonValue, field: string): string {
 function entityArgs(
   fields: Record<string, JsonValue>,
 ): Record<string, JsonValue> {
-  return { [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "", ...fields };
+  return buildEntityMutationArgs(ENTITY_ID_FIELD, ENTITY_ID, fields);
 }
 
-
 function readOwnerPid(): number {
-  try {
-    return Number(readFileSync(paths.pid, "utf8").trim());
-  } catch {
-    return Number.NaN;
-  }
+  return readPidFromFile(paths.pid);
 }
 
 function callbackWentStale(): boolean {
@@ -316,11 +308,7 @@ function processNotification(
 }
 
 async function refreshGithubToken(): Promise<void> {
-  await ensureGithubToken({
-    convexUrl: CONVEX_URL,
-    convexToken: CONVEX_TOKEN,
-    repoId: REPO_ID,
-  });
+  await refreshDaemonGithubTokenFromEnv();
 }
 
 async function establishThread(
@@ -392,41 +380,24 @@ async function startTurn(
 }
 
 function cleanMarkers(): void {
-  if (readOwnerPid() !== process.pid) return;
-  for (const path of [paths.pid, paths.entity, paths.opts]) {
-    try {
-      unlinkSync(path);
-    } catch {
-      /* ignore */
-    }
-  }
-  if (ENTITY_ID_FIELD === "sessionId") {
-    const legacy = resolveLegacySessionDaemonPaths();
-    for (const path of [legacy.pid, legacy.entity, legacy.opts]) {
-      try {
-        unlinkSync(path);
-      } catch {
-        /* ignore */
-      }
-    }
-  }
+  cleanOwnedDaemonMarkers({
+    paths,
+    includeLegacySessionPaths: ENTITY_ID_FIELD === "sessionId",
+  });
 }
 
 export async function runCodexAppServerDaemon(): Promise<void> {
   if (!CLAIM_MUTATION)
     throw new Error("CLAIM_MUTATION is required for Codex App Server mode");
-  const rivalPid = readOwnerPid();
-  if (
-    !Number.isNaN(rivalPid) &&
-    rivalPid !== process.pid &&
-    pidAlive(rivalPid)
-  ) {
+  const bootClaim = claimDaemonPidfileBoot({
+    paths,
+    entityId: ENTITY_ID ?? "",
+    optsSig: DAEMON_OPTS_SIG,
+  });
+  if (bootClaim.status === "rival_alive") {
     log("codex daemon: live rival already owns entity; exiting");
     process.exit(0);
   }
-  writeFileSync(paths.pid, String(process.pid));
-  writeFileSync(paths.entity, ENTITY_ID ?? "");
-  writeFileSync(paths.opts, DAEMON_OPTS_SIG);
 
   const fence = setInterval(() => {
     if (readOwnerPid() !== process.pid && !supervisor.hasWork) {

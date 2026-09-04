@@ -1,11 +1,9 @@
-import { unlinkSync, writeFileSync, readFileSync, readdirSync } from "fs";
+import { readdirSync } from "fs";
 import { homedir } from "os";
 import {
   CLAIM_MUTATION,
   COMPLETE_SYNTHETIC_TURN_MUTATION,
   COMPLETION_MUTATION,
-  CONVEX_TOKEN,
-  CONVEX_URL,
   CALLBACK_SCRIPT_FP,
   DAEMON_OPTS_SIG,
   ENTITY_ID,
@@ -15,15 +13,11 @@ import {
   MODEL,
   NO_OUTPUT_TIMEOUT_MS,
   OPEN_SYNTHETIC_TURN_MUTATION,
-  REPO_ID,
   RUN_ID,
   UPDATE_BACKGROUND_AGENTS_MUTATION,
   WORK_DIR,
 } from "../config.js";
-import {
-  resolveDaemonPaths,
-  resolveLegacySessionDaemonPaths,
-} from "./daemonPaths.js";
+import { resolveDaemonPaths } from "./daemonPaths.js";
 import {
   callConvexWithRetry,
   callHarnessSkillCatalogReport,
@@ -78,11 +72,16 @@ import {
 } from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
 import {
+  DAEMON_CLAIM_POLL_TIMING,
+  buildEntityMutationArgs,
   callbackBundleWentStale,
-  pidAlive,
+  claimDaemonPidfileBoot,
+  cleanOwnedDaemonMarkers,
+  readPidFromFile,
   sleep,
+  startDaemonDepositionFence,
 } from "../runtime/daemonProcess.js";
-import { ensureGithubToken } from "./githubToken.js";
+import { refreshDaemonGithubTokenFromEnv } from "./githubToken.js";
 import type { JsonObject, JsonValue } from "../types.js";
 import { DaemonSupervisor } from "../runtime/daemonSupervisor.js";
 import {
@@ -103,33 +102,27 @@ import { isZeroWorkTaskNotificationResult } from "./claudeResult.js";
 
 /** Reads the entity daemon pidfile; NaN when missing or unreadable. */
 function readDaemonPidFile(): number {
-  try {
-    return Number(readFileSync(DAEMON_PID_FILE, "utf8").trim());
-  } catch {
-    return Number.NaN;
-  }
+  return readPidFromFile(DAEMON_PID_FILE);
 }
 
 // Entity-scoped daemon marker paths (see daemonPaths.ts). Legacy session paths
 // are cleaned up on exit when this daemon is session-scoped.
 const daemonPaths = resolveDaemonPaths();
 const DAEMON_PID_FILE = daemonPaths.pid;
-const DAEMON_ENTITY_FILE = daemonPaths.entity;
-const DAEMON_OPTS_FILE = daemonPaths.opts;
 
 // Exit if no new turn arrives for this long, so the sandbox can be reclaimed.
 // Kept generous so a normal work session never pays a mid-session respawn (the
 // respawn — re-upload + boot — is the ~20s "slow hi" users feel). Matches the
 // keep-warm window of comparable agents (t3code reaps at 30min).
-const IDLE_EXIT_MS = 45 * 60 * 1000;
+const IDLE_EXIT_MS = DAEMON_CLAIM_POLL_TIMING.idleExitMs;
 // How often a daemon re-checks that it still owns the entity pidfile. Concurrent
 // launches race the multi-second gap between the launcher's alive-check and the
 // pidfile write below, so several daemons can boot for one entity (observed in
 // prod: 5 daemons flip-flopping one streaming row). Deposed daemons exit here.
-const FENCE_POLL_INTERVAL_MS = 5000;
+const FENCE_POLL_INTERVAL_MS = DAEMON_CLAIM_POLL_TIMING.fencePollIntervalMs;
 // Poll interval for the claim mutation. Low enough to keep handoff→turn-start
 // latency to ~one poll; the turn itself dominates so this only trims the tail.
-const PROMPT_POLL_INTERVAL_MS = 50;
+const PROMPT_POLL_INTERVAL_MS = DAEMON_CLAIM_POLL_TIMING.fastPollIntervalMs;
 // Idle backoff for that poll. At 50ms an idle daemon burns ~20 Convex mutation
 // calls/s (~54k per 45-min idle window) purely to notice a turn that is not
 // coming, and those silent executions flood `convex logs`. Once no turn is in
@@ -138,8 +131,8 @@ const PROMPT_POLL_INTERVAL_MS = 50;
 // fresh send, invisible next to model time-to-first-token. Any in-flight turn
 // keeps the 50ms cadence so cancel/stop-task drains (which ride the same
 // mutation) stay prompt even through long-silent tool runs.
-const PROMPT_POLL_IDLE_INTERVAL_MS = 1000;
-const PROMPT_POLL_FAST_WINDOW_MS = 30_000;
+const PROMPT_POLL_IDLE_INTERVAL_MS = DAEMON_CLAIM_POLL_TIMING.idlePollIntervalMs;
+const PROMPT_POLL_FAST_WINDOW_MS = DAEMON_CLAIM_POLL_TIMING.fastPollWindowMs;
 
 // Per-turn watchdog. Without this a turn whose SDK query stalls or ends without
 // emitting a result would never send a completion event, so the workflow's
@@ -222,10 +215,15 @@ let usageRefreshInFlight = false;
 function entityMutationArgs(
   fields: Record<string, JsonValue>,
 ): Record<string, JsonValue> {
-  return {
-    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
-    ...fields,
-  };
+  return buildEntityMutationArgs(ENTITY_ID_FIELD, ENTITY_ID, fields);
+}
+
+/** Removes marker files only while this process still owns the pidfile. */
+function cleanOwnedMarkers(): void {
+  cleanOwnedDaemonMarkers({
+    paths: daemonPaths,
+    includeLegacySessionPaths: ENTITY_ID_FIELD === "sessionId",
+  });
 }
 
 function beginWatchedTurn(): void {
@@ -286,16 +284,10 @@ async function failTurnAndExit(error: string): Promise<never> {
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
   }
-  // Only unlink a pidfile this daemon still owns — a deposed daemon that
+  // Only unlink markers this daemon still owns — a deposed daemon that
   // deferred its fence exit through this failing turn would otherwise delete
   // the rival's pidfile and take the healthy daemon down with it.
-  if (readDaemonPidFile() === process.pid) {
-    try {
-      unlinkSync(DAEMON_PID_FILE);
-    } catch {
-      /* ignore */
-    }
-  }
+  cleanOwnedMarkers();
   await stopStreamingLoops();
   process.exit(1);
 }
@@ -316,13 +308,7 @@ async function exitWithoutCompletion(reason: string): Promise<void> {
   // safe on a turn the server has already finalized.
   persistTurnWork();
   // Same ownership gate as failTurnAndExit: never delete a rival's pidfile.
-  if (readDaemonPidFile() === process.pid) {
-    try {
-      unlinkSync(DAEMON_PID_FILE);
-    } catch {
-      /* ignore */
-    }
-  }
+  cleanOwnedMarkers();
   await stopStreamingLoops();
 }
 
@@ -433,11 +419,7 @@ function createPromptStream(): {
 
 /** Sessions may push git commits; refresh the installation token like the one-shot path. */
 async function refreshGithubToken(): Promise<void> {
-  await ensureGithubToken({
-    convexUrl: CONVEX_URL,
-    convexToken: CONVEX_TOKEN,
-    repoId: REPO_ID,
-  });
+  await refreshDaemonGithubTokenFromEnv();
 }
 
 /** Clears the per-turn accumulators so the next turn starts clean on the same query. */
@@ -1559,21 +1541,17 @@ export async function runSdkDaemon(): Promise<void> {
   // Single-daemon fence, part 1 (boot claim): if a live rival already owns the
   // pidfile, exit without touching its marker files. First writer wins. A dead
   // pid in the file (e.g. after KILL_PRIOR_AGENT_PROCESSES_CMD) is overwritten.
-  const rivalPid = readDaemonPidFile();
-  if (
-    !Number.isNaN(rivalPid) &&
-    rivalPid !== process.pid &&
-    pidAlive(rivalPid)
-  ) {
+  const bootClaim = claimDaemonPidfileBoot({
+    paths: daemonPaths,
+    entityId: ENTITY_ID ?? "",
+    optsSig: DAEMON_OPTS_SIG,
+  });
+  if (bootClaim.status === "rival_alive") {
     log(
-      `daemon: rival daemon pid=${rivalPid} already owns ${DAEMON_PID_FILE} — exiting`,
+      `daemon: rival daemon pid=${bootClaim.rivalPid} already owns ${DAEMON_PID_FILE} — exiting`,
     );
     process.exit(0);
   }
-
-  writeFileSync(DAEMON_PID_FILE, String(process.pid));
-  writeFileSync(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
-  writeFileSync(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
 
   // Single-daemon fence, part 2: a launch racing past the boot claim (or an
   // optsmismatch respawn) overwrites the pidfile; the deposed daemon must exit
@@ -1582,26 +1560,16 @@ export async function runSdkDaemon(): Promise<void> {
   // killed mid-flight — the rival idles on claim polling meanwhile. A missing
   // pidfile also means deposed (a kill+respawn removed it; the successor will
   // claim it).
-  let deposedLogged = false;
-  setInterval(() => {
-    const owner = readDaemonPidFile();
-    if (owner === process.pid) {
-      deposedLogged = false;
-      return;
-    }
-    const ownerLabel = Number.isNaN(owner) ? "none" : String(owner);
-    if (supervisor.hasWork) {
-      if (!deposedLogged) {
-        deposedLogged = true;
-        log(
-          `daemon: deposed (pidfile owner=${ownerLabel}) — exiting after active turn`,
-        );
-      }
-      return;
-    }
-    log(`daemon: deposed (pidfile owner=${ownerLabel}) — exiting`);
-    process.exit(0);
-  }, FENCE_POLL_INTERVAL_MS);
+  startDaemonDepositionFence({
+    readOwnerPid: readDaemonPidFile,
+    hasActiveWork: () => supervisor.hasWork,
+    pollIntervalMs: FENCE_POLL_INTERVAL_MS,
+    log,
+    logPrefix: "daemon",
+    onDeposedIdle: () => {
+      process.exit(0);
+    },
+  });
 
   const preflightOk = await runPreflightHeartbeat();
   if (!preflightOk) {
@@ -1664,33 +1632,7 @@ export async function runSdkDaemon(): Promise<void> {
     // Only tear down markers this daemon still owns — after a fence
     // deposition a rival owns them (fence exits bypass this via
     // process.exit, but an SDK failure can reach here deposed).
-    if (readDaemonPidFile() === process.pid) {
-      try {
-        unlinkSync(DAEMON_PID_FILE);
-        unlinkSync(DAEMON_ENTITY_FILE);
-        unlinkSync(DAEMON_OPTS_FILE);
-        if (ENTITY_ID_FIELD === "sessionId") {
-          const legacy = resolveLegacySessionDaemonPaths();
-          try {
-            unlinkSync(legacy.pid);
-          } catch {
-            /* ignore */
-          }
-          try {
-            unlinkSync(legacy.entity);
-          } catch {
-            /* ignore */
-          }
-          try {
-            unlinkSync(legacy.opts);
-          } catch {
-            /* ignore */
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-    }
+    cleanOwnedMarkers();
     await stopStreamingLoops();
   }
   process.exit(0);

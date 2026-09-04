@@ -10,6 +10,7 @@ import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getActionRepoWithAccess } from "../functions";
 import { patchPullRequest } from "./pullRequestWrite";
+import { fetchLatestDeploymentStatus } from "./deploymentSnapshot";
 
 const MAX_ISSUE_COMMENTS = 100;
 const MAX_REVIEW_COMMENTS = 100;
@@ -429,15 +430,12 @@ export const fetchPullRequestOverview = internalAction({
     const previews: PullRequestPreview[] = (
       await Promise.all(
         deploymentRes.data.slice(0, MAX_PREVIEWS).map(async (deployment) => {
-          const statuses = await octokit.rest.repos
-            .listDeploymentStatuses({
-              owner: repo.owner,
-              repo: repo.name,
-              deployment_id: deployment.id,
-              per_page: 1,
-            })
-            .catch(() => ({ data: [] }));
-          const latest = statuses.data[0];
+          const latest = await fetchLatestDeploymentStatus({
+            repos: octokit.rest.repos,
+            owner: repo.owner,
+            repo: repo.name,
+            deploymentId: deployment.id,
+          }).catch(() => null);
           return {
             environment: deployment.environment,
             url: latest?.environment_url ?? null,

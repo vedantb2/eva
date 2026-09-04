@@ -3,12 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import {
+  DAEMON_CLAIM_POLL_TIMING,
   buildEntityMutationArgs,
   callbackBundleWentStale,
   claimDaemonPidfileBoot,
   cleanOwnedDaemonMarkers,
   pidAlive,
   readPidFromFile,
+  selectClaimPollIntervalMs,
   sleep,
 } from "../runtime/daemonProcess.js";
 
@@ -25,6 +27,31 @@ test("pidAlive reports this process as live and a fake pid as dead", () => {
 
 test("callbackBundleWentStale is false when the fingerprint env is empty", () => {
   expect(callbackBundleWentStale("")).toBe(false);
+});
+
+test("selectClaimPollIntervalMs is fast while busy or recently active", () => {
+  const now = 100_000;
+  expect(
+    selectClaimPollIntervalMs({
+      busy: true,
+      lastIdleActivityAtMs: 0,
+      now,
+    }),
+  ).toBe(DAEMON_CLAIM_POLL_TIMING.fastPollIntervalMs);
+  expect(
+    selectClaimPollIntervalMs({
+      busy: false,
+      lastIdleActivityAtMs: now - 1_000,
+      now,
+    }),
+  ).toBe(DAEMON_CLAIM_POLL_TIMING.fastPollIntervalMs);
+  expect(
+    selectClaimPollIntervalMs({
+      busy: false,
+      lastIdleActivityAtMs: now - DAEMON_CLAIM_POLL_TIMING.fastPollWindowMs - 1,
+      now,
+    }),
+  ).toBe(DAEMON_CLAIM_POLL_TIMING.idlePollIntervalMs);
 });
 
 test("readPidFromFile returns NaN when the file is missing", () => {

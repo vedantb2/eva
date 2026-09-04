@@ -32,7 +32,10 @@ import {
   startStreamingLoops,
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
-import { callbackState as S } from "../runtime/state.js";
+import {
+  callbackState as S,
+  resetDaemonTurnStreamingState,
+} from "../runtime/state.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import { appendTurnCheckpoint } from "../runtime/turnCheckpoint.js";
@@ -50,6 +53,7 @@ import {
   claimDaemonPidfileBoot,
   cleanOwnedDaemonMarkers,
   readPidFromFile,
+  selectClaimPollIntervalMs,
   sleep,
   startDaemonDepositionFence,
 } from "../runtime/daemonProcess.js";
@@ -277,22 +281,7 @@ function callbackScriptWentStaleOnDisk(): boolean {
 
 /** Clears the per-turn accumulators so the next turn starts clean. */
 function resetTurnState(): void {
-  S.accumulatedSteps.length = 0;
-  S.currentStreamedContent = "";
-  S.streamedAssistantTextThisMessage = false;
-  S.pendingParagraphBreak = false;
-  S.resultEventSeen = false;
-  S.rawOutput = "";
-  // The flush cursor and the buffer are one value: a cleared buffer with a live
-  // cursor makes flushStreaming's `rawOutput.length <= lastProcessed` guard
-  // permanently true, so no later line is ever parsed into accumulatedSteps and
-  // every turn from the second onward reports an empty activity log.
-  S.lastProcessed = 0;
-  S.realtimeOutputBuffer = "";
-  S.inFlightToolUses = 0;
-  S.pendingQuestionData = "";
-  S.todoState.length = 0;
-  S.lastStepType = "thinking";
+  resetDaemonTurnStreamingState();
 }
 
 /** Sessions may push git commits; refresh the installation token like the one-shot path. */
@@ -529,12 +518,11 @@ function startClaimWatcher(): void {
         /* retry on the next poll */
       }
       const busy = turnActive || pendingClaimedTurn !== null || cancelInFlight;
-      const recentlyActive =
-        Date.now() - lastIdleActivityAtMs < PROMPT_POLL_FAST_WINDOW_MS;
       await sleep(
-        busy || recentlyActive
-          ? PROMPT_POLL_INTERVAL_MS
-          : PROMPT_POLL_IDLE_INTERVAL_MS,
+        selectClaimPollIntervalMs({
+          busy,
+          lastIdleActivityAtMs,
+        }),
       );
     }
   })();

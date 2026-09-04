@@ -16,6 +16,21 @@ export const DAEMON_CLAIM_POLL_TIMING = {
   fastPollWindowMs: 30_000,
 } as const;
 
+/** Fast while a turn is busy or just finished; idle backoff otherwise. */
+export function selectClaimPollIntervalMs(params: {
+  busy: boolean;
+  lastIdleActivityAtMs: number;
+  now?: number;
+}): number {
+  const now = params.now ?? Date.now();
+  const recentlyActive =
+    now - params.lastIdleActivityAtMs <
+    DAEMON_CLAIM_POLL_TIMING.fastPollWindowMs;
+  return params.busy || recentlyActive
+    ? DAEMON_CLAIM_POLL_TIMING.fastPollIntervalMs
+    : DAEMON_CLAIM_POLL_TIMING.idlePollIntervalMs;
+}
+
 /** Resolves after `ms`. Shared by daemon poll loops and question waits. */
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {

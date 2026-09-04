@@ -289,6 +289,37 @@ test("callback daemons share GitHub token refresh from env", () => {
   }
 });
 
+test("daemon turn resets share resetDaemonTurnStreamingState", () => {
+  const state = read("callback-src/runtime/state.ts");
+  expect(state).toContain("export function resetDaemonTurnStreamingState(");
+  expect(state).toContain('callbackState.rawOutput = ""');
+  expect(state).toContain("callbackState.lastProcessed = 0");
+  for (const path of [
+    "callback-src/providers/claudeSdkDaemon.ts",
+    "callback-src/providers/cursorSdkDaemon.ts",
+    "callback-src/providers/codexAppServerDaemon.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should call the shared reset`).toContain(
+      "resetDaemonTurnStreamingState()",
+    );
+    expect(source, `${path} re-inlined the flush-cursor reset`).not.toContain(
+      "S.lastProcessed = 0",
+    );
+  }
+});
+
+test("claim poll backoff uses selectClaimPollIntervalMs", () => {
+  const service = read("callback-src/runtime/daemonProcess.ts");
+  expect(service).toContain("export function selectClaimPollIntervalMs(");
+  expect(read("callback-src/providers/claudeSdkDaemon.ts")).toContain(
+    "selectClaimPollIntervalMs(",
+  );
+  expect(read("callback-src/providers/cursorSdkDaemon.ts")).toContain(
+    "selectClaimPollIntervalMs(",
+  );
+});
+
 test("deployment status reads share fetchLatestDeploymentStatus", () => {
   const service = read("convex/_github/deploymentSnapshot.ts");
   expect(service).toContain("export async function fetchLatestDeploymentStatus(");

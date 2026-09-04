@@ -30,7 +30,10 @@ import {
   startStreamingLoops,
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
-import { callbackState as S } from "../runtime/state.js";
+import {
+  callbackState as S,
+  resetDaemonTurnStreamingState,
+} from "../runtime/state.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import { getCurrentTurnLease } from "../runtime/turnLease.js";
@@ -117,19 +120,8 @@ function callbackWentStale(): boolean {
 }
 
 function resetTurnState(): void {
-  S.accumulatedSteps.length = 0;
-  S.currentStreamedContent = "";
-  S.streamedAssistantTextThisMessage = false;
-  S.pendingParagraphBreak = false;
-  S.resultEventSeen = false;
-  S.rawOutput = "";
-  S.lastProcessed = 0;
-  S.realtimeOutputBuffer = "";
-  S.inFlightToolUses = 0;
+  resetDaemonTurnStreamingState();
   S.codexToolItemIds.clear();
-  S.pendingQuestionData = "";
-  S.todoState.length = 0;
-  S.lastStepType = "thinking";
   activeTurnStartedAt = 0;
   finalText = "";
 }

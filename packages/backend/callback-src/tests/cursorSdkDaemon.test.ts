@@ -224,12 +224,16 @@ describe("the cursor daemon's per-turn ordering", () => {
   const daemon = readSource("providers/cursorSdkDaemon.ts");
 
   test("clearing the turn buffer also rewinds the flush cursor", () => {
-    const reset = functionBody(daemon, "function resetTurnState(): void {");
-    expect(reset).toContain('S.rawOutput = ""');
+    expect(daemon).toContain("resetDaemonTurnStreamingState()");
+    const reset = functionBody(
+      readSource("runtime/state.ts"),
+      "export function resetDaemonTurnStreamingState(): void {",
+    );
+    expect(reset).toContain('callbackState.rawOutput = ""');
     expect(
       reset,
       "a cleared buffer with a live cursor kills flushing",
-    ).toContain("S.lastProcessed = 0");
+    ).toContain("callbackState.lastProcessed = 0");
   });
 
   /**
@@ -354,9 +358,8 @@ describe("the cursor daemon's per-turn ordering", () => {
   /** An idle daemon polling at 50ms burns ~20 Convex mutations/s for nothing. */
   test("the claim poll backs off once nothing is in flight", () => {
     const watcher = daemon.slice(daemon.indexOf("function startClaimWatcher("));
-    expect(watcher).toContain("PROMPT_POLL_IDLE_INTERVAL_MS");
-    expect(watcher).toContain("PROMPT_POLL_INTERVAL_MS");
-    expect(watcher).toContain("PROMPT_POLL_FAST_WINDOW_MS");
+    expect(watcher).toContain("selectClaimPollIntervalMs(");
+    expect(watcher).toContain("lastIdleActivityAtMs");
   });
 
   /**

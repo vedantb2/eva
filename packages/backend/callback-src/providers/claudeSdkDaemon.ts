@@ -54,7 +54,10 @@ import {
   type SdkModule,
   type SdkUserMessage,
 } from "./claudeSdk.js";
-import { callbackState as S } from "../runtime/state.js";
+import {
+  callbackState as S,
+  resetDaemonTurnStreamingState,
+} from "../runtime/state.js";
 import {
   captureAndReportClaudeUsage,
   type ClaudeUsageResponseLike,
@@ -79,6 +82,7 @@ import {
   cleanOwnedDaemonMarkers,
   readPidFromFile,
   sleep,
+  selectClaimPollIntervalMs,
   startDaemonDepositionFence,
 } from "../runtime/daemonProcess.js";
 import { refreshDaemonGithubTokenFromEnv } from "./githubToken.js";
@@ -424,21 +428,8 @@ async function refreshGithubToken(): Promise<void> {
 
 /** Clears the per-turn accumulators so the next turn starts clean on the same query. */
 function resetTurnState(): void {
-  S.accumulatedSteps.length = 0;
-  S.currentStreamedContent = "";
-  S.streamedAssistantTextThisMessage = false;
-  S.resultEventSeen = false;
-  S.rawOutput = "";
-  // rawOutput is truncated to "" above, so the flush cursor must return to the
-  // head — otherwise flushStreaming's `rawOutput.length <= lastProcessed` guard
-  // stays true for the whole next turn and its lines are never parsed into
-  // accumulatedSteps (activity would be empty from turn 2 onward).
-  S.lastProcessed = 0;
-  S.inFlightToolUses = 0;
-  S.pendingQuestionData = "";
-  S.todoState.length = 0;
+  resetDaemonTurnStreamingState();
   S.awaitingQuestionAnswer = false;
-  S.lastStepType = "thinking";
 }
 
 /** Reports one finished turn to the session workflow (mirrors the one-shot completion). */
@@ -1191,12 +1182,11 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
         /* retry on next poll */
       }
       const turnInFlight = supervisor.hasWork;
-      const recentlyActive =
-        Date.now() - lastIdleActivityAtMs < PROMPT_POLL_FAST_WINDOW_MS;
       await sleep(
-        turnInFlight || recentlyActive
-          ? PROMPT_POLL_INTERVAL_MS
-          : PROMPT_POLL_IDLE_INTERVAL_MS,
+        selectClaimPollIntervalMs({
+          busy: turnInFlight,
+          lastIdleActivityAtMs,
+        }),
       );
     }
   })();

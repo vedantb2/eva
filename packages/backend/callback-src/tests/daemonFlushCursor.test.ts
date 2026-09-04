@@ -83,14 +83,18 @@ describe("the flush cursor stays inside the buffer", () => {
  */
 describe("resetting the turn resets the cursor with it", () => {
   const daemon = readSource("providers/claudeSdkDaemon.ts");
-  const reset = functionBody(daemon, "function resetTurnState(): void {");
+  const reset = functionBody(
+    readSource("runtime/state.ts"),
+    "export function resetDaemonTurnStreamingState(): void {",
+  );
 
   test("clearing the buffer also rewinds the cursor", () => {
-    expect(reset).toContain('S.rawOutput = ""');
+    expect(daemon).toContain("resetDaemonTurnStreamingState()");
+    expect(reset).toContain('callbackState.rawOutput = ""');
     expect(
       reset,
       "a cleared buffer with a live cursor kills flushing",
-    ).toContain("S.lastProcessed = 0");
+    ).toContain("callbackState.lastProcessed = 0");
   });
 
   /**

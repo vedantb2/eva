@@ -29,7 +29,7 @@ describe("the daemon claim poll is fast only when it has a reason to be", () => 
   const dense = withoutWhitespace(watcher);
 
   test("it backs off when nothing is happening", () => {
-    expect(dense).toContain("PROMPT_POLL_IDLE_INTERVAL_MS");
+    expect(dense).toContain("selectClaimPollIntervalMs(");
     expect(
       timing("idlePollIntervalMs"),
       "an idle poll must be materially cheaper than a mid-turn one",
@@ -57,8 +57,11 @@ describe("the daemon claim poll is fast only when it has a reason to be", () => 
    * the next prompt eats the idle interval.
    */
   test("recent activity also keeps the fast cadence", () => {
-    expect(dense).toContain(
-      "Date.now()-lastIdleActivityAtMs<PROMPT_POLL_FAST_WINDOW_MS",
+    const selector = withoutWhitespace(
+      readSource("callback-src/runtime/daemonProcess.ts"),
+    );
+    expect(selector).toContain(
+      "now-params.lastIdleActivityAtMs<DAEMON_CLAIM_POLL_TIMING.fastPollWindowMs",
     );
     expect(
       timing("fastPollWindowMs"),
@@ -68,8 +71,14 @@ describe("the daemon claim poll is fast only when it has a reason to be", () => 
 
   test("the two cadences are chosen by those two conditions and nothing else", () => {
     expect(dense).toContain(
-      "awaitsleep(turnInFlight||recentlyActive?PROMPT_POLL_INTERVAL_MS:PROMPT_POLL_IDLE_INTERVAL_MS,)",
+      "awaitsleep(selectClaimPollIntervalMs({busy:turnInFlight,lastIdleActivityAtMs,}),)",
     );
+    const selector = withoutWhitespace(
+      readSource("callback-src/runtime/daemonProcess.ts"),
+    );
+    expect(selector).toContain("params.busy||recentlyActive");
+    expect(selector).toContain("DAEMON_CLAIM_POLL_TIMING.fastPollIntervalMs");
+    expect(selector).toContain("DAEMON_CLAIM_POLL_TIMING.idlePollIntervalMs");
   });
 
   /**

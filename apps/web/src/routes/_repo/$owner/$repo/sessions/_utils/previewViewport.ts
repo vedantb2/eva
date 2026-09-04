@@ -371,17 +371,7 @@ export function resizePreviewViewport(
   });
 }
 
-export function previewIframeScale(
-  visual: { width: number; height: number },
-  logical: { width: number; height: number },
-): number {
-  if (logical.width <= 0 || logical.height <= 0) return 1;
-  const scale = Math.min(
-    visual.width / logical.width,
-    visual.height / logical.height,
-  );
-  return Number.isFinite(scale) && scale > 0 ? scale : 1;
-}
+export { previewIframeScale } from "@/lib/components/sandbox/previewContain";
 
 export function fittedPreviewContainStyle(logical: {
   width: number;

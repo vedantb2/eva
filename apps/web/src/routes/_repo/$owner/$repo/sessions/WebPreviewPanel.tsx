@@ -12,6 +12,7 @@ import {
   useFullscreenElement,
   usePreviewIframeElement,
 } from "@/lib/components/sandbox/previewIframeHost";
+import { resolveMiniPlayerLogicalSize } from "@/lib/components/sandbox/previewContain";
 import {
   closePreviewMiniPlayer,
   openPreviewMiniPlayer,
@@ -227,6 +228,7 @@ export function WebPreviewPanel({
               closePreviewMiniPlayer();
               return;
             }
+            const fillBox = iframeElement?.getBoundingClientRect();
             openPreviewMiniPlayer({
               ...miniPlayerSource,
               entryKey: pathStorageKey,
@@ -234,6 +236,14 @@ export function WebPreviewPanel({
               src: iframeSrc,
               epoch: iframeKey,
               mode: "manual",
+              logicalSize: resolveMiniPlayerLogicalSize(
+                viewport.mode === "fill"
+                  ? null
+                  : { width: viewport.width, height: viewport.height },
+                fillBox
+                  ? { width: fillBox.width, height: fillBox.height }
+                  : null,
+              ),
             });
           },
         }

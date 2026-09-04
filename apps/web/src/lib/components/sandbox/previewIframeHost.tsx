@@ -11,6 +11,10 @@ import {
   type PreviewAnchorRole,
   type PreviewMiniPlayerSource,
 } from "./previewMiniPlayerStore";
+import {
+  previewContainedLayout,
+  resolveMiniPlayerLogicalSize,
+} from "./previewContain";
 
 /**
  * Global preview-iframe keep-alive.
@@ -284,7 +288,10 @@ function attach(key: string, options: AttachOptions): (() => void) | undefined {
     rect: measure(options.anchor),
     element: sameEpoch ? existing.element : null,
     logical: options.logical,
-    bordered: options.logical !== null,
+    // Device chrome belongs on the pane's contained box, not the mini-player
+    // body — that overlay is the letterbox, so a border there would frame the
+    // bars instead of the page.
+    bordered: options.role === "panel" && options.logical !== null,
     attachedAt: Date.now(),
   });
   evictOverCap();
@@ -301,6 +308,10 @@ function attach(key: string, options: AttachOptions): (() => void) | undefined {
         group: current.group,
         src: current.src,
         epoch: current.epoch,
+        logicalSize: resolveMiniPlayerLogicalSize(
+          options.logical,
+          measure(options.anchor),
+        ),
       });
     } else {
       disarmPreviewMiniPlayer(key);
@@ -424,15 +435,16 @@ export function PreviewIframeHost() {
         const rect = overlayRect(entry, live);
         const visible = rect !== null && rect.width > 0 && rect.height > 0;
         const logical = entry.logical;
-        const scale =
-          logical && rect
-            ? Math.min(rect.width / logical.width, rect.height / logical.height)
-            : 1;
+        const contained =
+          logical && rect ? previewContainedLayout(rect, logical) : null;
         return (
           <div
             key={entry.key}
             className={cn(
-              "absolute overflow-hidden bg-background",
+              "absolute overflow-hidden",
+              // Letterbox bars when the guest is contained; fill panes stay
+              // opaque so a loading iframe does not flash the page behind.
+              logical ? "bg-muted" : "bg-background",
               // Iframes swallow pointer events, so every overlay goes inert
               // for the duration of a gesture, not just the dragged one.
               live !== null ? "pointer-events-none" : "pointer-events-auto",
@@ -459,11 +471,11 @@ export function PreviewIframeHost() {
                 logical ? "block border-0" : "block size-full border-0"
               }
               style={
-                logical
+                logical && contained
                   ? {
                       width: logical.width,
                       height: logical.height,
-                      transform: `scale(${scale})`,
+                      transform: `translate(${contained.offsetX}px, ${contained.offsetY}px) scale(${contained.scale})`,
                       transformOrigin: "top left",
                     }
                   : undefined

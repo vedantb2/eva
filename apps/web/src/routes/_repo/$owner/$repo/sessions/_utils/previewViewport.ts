@@ -371,17 +371,7 @@ export function resizePreviewViewport(
   });
 }
 
-export function previewIframeScale(
-  visual: { width: number; height: number },
-  logical: { width: number; height: number },
-): number {
-  if (logical.width <= 0 || logical.height <= 0) return 1;
-  const scale = Math.min(
-    visual.width / logical.width,
-    visual.height / logical.height,
-  );
-  return Number.isFinite(scale) && scale > 0 ? scale : 1;
-}
+export { previewIframeScale } from "@/lib/components/sandbox/previewContain";
 
 export function fittedPreviewContainStyle(logical: {
   width: number;
@@ -400,4 +390,30 @@ export function sizedPreviewViewport(
   viewport: PreviewViewport,
 ): SizedPreviewViewport | null {
   return viewport.mode === "fill" ? null : viewport;
+}
+
+const DEFAULT_CONTAIN_SIZE = { width: 1280, height: 800 };
+
+/** Locked guest box for the preview-bar contain toggle (fill + letterbox). */
+export function parsePreviewContainSize(raw: string): {
+  width: number;
+  height: number;
+} {
+  try {
+    const parsed = JSON.parse(raw) as { width?: unknown; height?: unknown };
+    const size = snapshotFillViewport({
+      width: Number(parsed.width),
+      height: Number(parsed.height),
+    });
+    return { width: size.width, height: size.height };
+  } catch {
+    return { ...DEFAULT_CONTAIN_SIZE };
+  }
+}
+
+export function serializePreviewContainSize(size: {
+  width: number;
+  height: number;
+}): string {
+  return JSON.stringify(clampPreviewViewportSize(size));
 }

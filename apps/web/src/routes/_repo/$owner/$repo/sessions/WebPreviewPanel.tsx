@@ -12,6 +12,7 @@ import {
   useFullscreenElement,
   usePreviewIframeElement,
 } from "@/lib/components/sandbox/previewIframeHost";
+import { resolveMiniPlayerLogicalSize } from "@/lib/components/sandbox/previewContain";
 import {
   closePreviewMiniPlayer,
   openPreviewMiniPlayer,
@@ -25,8 +26,10 @@ import { PreviewPanelNavBar } from "./_components/PreviewPanelNavBar";
 import { PreviewViewportFrame } from "./_components/PreviewViewportFrame";
 import {
   FILL_PREVIEW_VIEWPORT,
+  parsePreviewContainSize,
   parsePreviewViewport,
   readStoredPreviewViewport,
+  serializePreviewContainSize,
   serializePreviewViewport,
   snapshotFillViewport,
   type PreviewViewport,
@@ -144,6 +147,26 @@ export function WebPreviewPanel({
     setAspectKey(pathStorageKey);
     setAspectRatio(null);
   }
+  const containStorageKey = `${pathStorageKey}:contain`;
+  const [contain, setContain] = useSessionStorage(containStorageKey, false, {
+    serializer: (value) => (value ? "1" : "0"),
+    deserializer: (value) => value === "1",
+  });
+  const containSizeStorageKey = `${pathStorageKey}:contain-size`;
+  const [containSize, setContainSize] = useSessionStorage(
+    containSizeStorageKey,
+    { width: 1280, height: 800 },
+    {
+      serializer: serializePreviewContainSize,
+      deserializer: parsePreviewContainSize,
+    },
+  );
+  const framedViewport: PreviewViewport =
+    viewport.mode !== "fill"
+      ? viewport
+      : contain
+        ? { mode: "freeform", ...containSize }
+        : FILL_PREVIEW_VIEWPORT;
   const previewPath = normalizePreviewPath(stickyPath ?? localPath);
 
   // iframeSrc is recomputed only at remount points (previewInfo change,
@@ -205,8 +228,10 @@ export function WebPreviewPanel({
     if (viewport.mode !== "fill") {
       setViewport(FILL_PREVIEW_VIEWPORT);
       setAspectRatio(null);
+      setContain(false);
       return;
     }
+    setContain(false);
     const rect = iframeElement?.getBoundingClientRect();
     setViewport(
       snapshotFillViewport({
@@ -214,6 +239,24 @@ export function WebPreviewPanel({
         height: rect?.height ?? 800,
       }),
     );
+  }
+
+  function handleToggleContain() {
+    if (viewport.mode !== "fill") {
+      setContainSize({ width: viewport.width, height: viewport.height });
+      setViewport(FILL_PREVIEW_VIEWPORT);
+      setAspectRatio(null);
+      setContain(true);
+      return;
+    }
+    if (contain) {
+      setContain(false);
+      return;
+    }
+    // Keep the stored box (default 1280×800) so the pane letterboxes
+    // immediately — snapshotting the fill rect would match the panel and
+    // look like a no-op until the splitter moved.
+    setContain(true);
   }
 
   // Manual pop-out: the pane hands its anchor to the mini-player and shows a
@@ -227,6 +270,7 @@ export function WebPreviewPanel({
               closePreviewMiniPlayer();
               return;
             }
+            const fillBox = iframeElement?.getBoundingClientRect();
             openPreviewMiniPlayer({
               ...miniPlayerSource,
               entryKey: pathStorageKey,
@@ -234,6 +278,17 @@ export function WebPreviewPanel({
               src: iframeSrc,
               epoch: iframeKey,
               mode: "manual",
+              logicalSize: resolveMiniPlayerLogicalSize(
+                framedViewport.mode === "fill"
+                  ? null
+                  : {
+                      width: framedViewport.width,
+                      height: framedViewport.height,
+                    },
+                fillBox
+                  ? { width: fillBox.width, height: fillBox.height }
+                  : null,
+              ),
             });
           },
         }
@@ -262,6 +317,8 @@ export function WebPreviewPanel({
         onPathChange={handlePathChange}
         viewport={viewport}
         onToggleDevice={handleToggleDevice}
+        contain={contain}
+        onToggleContain={handleToggleContain}
         annotationMode={annotationMode}
         onAnnotationModeChange={setAnnotationMode}
         showAnnotationToggle={Boolean(onAnnotationSubmit)}
@@ -276,6 +333,7 @@ export function WebPreviewPanel({
           onFill={() => {
             setViewport(FILL_PREVIEW_VIEWPORT);
             setAspectRatio(null);
+            setContain(false);
           }}
         />
       ) : null}
@@ -284,15 +342,19 @@ export function WebPreviewPanel({
       ) : (
         <div className="relative flex min-h-0 flex-1 flex-col">
           <PreviewViewportFrame
-            viewport={viewport}
+            viewport={framedViewport}
             aspectRatio={aspectRatio}
-            onResize={(size) =>
+            onResize={(size) => {
+              if (viewport.mode === "fill" && contain) {
+                setContainSize(size);
+                return;
+              }
               setViewport({
                 mode: "freeform",
                 width: size.width,
                 height: size.height,
-              })
-            }
+              });
+            }}
           >
             <PersistentPreviewBody
               entryKey={pathStorageKey}
@@ -302,9 +364,12 @@ export function WebPreviewPanel({
               covered={error !== null}
               miniPlayer={miniPlayerSource}
               logicalSize={
-                viewport.mode === "fill"
+                framedViewport.mode === "fill"
                   ? null
-                  : { width: viewport.width, height: viewport.height }
+                  : {
+                      width: framedViewport.width,
+                      height: framedViewport.height,
+                    }
               }
               loading={
                 isLoading && !previewInfo ? (

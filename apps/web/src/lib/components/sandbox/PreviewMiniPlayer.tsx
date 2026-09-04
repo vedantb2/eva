@@ -7,6 +7,7 @@ import { cn } from "@eva/ui";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { PreviewMiniPlayerChrome } from "./_components/PreviewMiniPlayerChrome";
 import { dropPreviewGroup, PreviewAnchor } from "./previewIframeHost";
+import { DEFAULT_MINI_PLAYER_LOGICAL_SIZE } from "./previewContain";
 import {
   closePreviewMiniPlayer,
   usePreviewMiniPlayer,
@@ -36,9 +37,16 @@ function PreviewMiniPlayerWindow({ entry }: { entry: PreviewMiniPlayerEntry }) {
   const navigate = useNavigate();
   const { style, moveHandlers, resizeHandlers, gesture } =
     usePreviewMiniPlayerFrame(entry.entryKey);
+  const logicalSize = entry.logicalSize ?? DEFAULT_MINI_PLAYER_LOGICAL_SIZE;
   // The session doc is the truth about whether this iframe still shows a live
   // sandbox; the pane that would normally notice has been unmounted.
-  const session = useQuery(api.sessions.get, { id: entry.sessionId });
+  // Blob/data guests are local fixtures (no sandbox doc to reconcile).
+  const session = useQuery(
+    api.sessions.get,
+    entry.src.startsWith("blob:") || entry.src.startsWith("data:")
+      ? "skip"
+      : { id: entry.sessionId },
+  );
   const stale =
     session === null ||
     (session !== undefined &&
@@ -66,13 +74,13 @@ function PreviewMiniPlayerWindow({ entry }: { entry: PreviewMiniPlayerEntry }) {
         onExpand={expand}
         onClose={closePreviewMiniPlayer}
       />
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 bg-black">
         <PreviewAnchor
           entryKey={entry.entryKey}
           group={entry.group}
           src={entry.src}
           epoch={entry.epoch}
-          logicalSize={null}
+          logicalSize={logicalSize}
           role="miniPlayer"
         />
       </div>

@@ -1253,6 +1253,21 @@ html[data-blur-pid] [data-pii] {
     transparent calc(var(--beam-spread) * 2);
 }
 
+/* Inset ring for overflow-hidden panes (Browser lock). Masks the spinning
+ * gradient to a 3px inner frame so it can sit on top of the iframe the same
+ * way `ring-inset` did — wrapping would paint the beam behind the child, and
+ * the pane's overflow-hidden would clip BorderBeam's usual -1px outset. */
+.beam-inset .beam,
+.beam-inset .beam-halo {
+  inset: 0;
+  padding: 3px;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
 /* ───────────────────────────────────────────────────────────────────
  * Marquee-on-hover for truncated single-line labels (<MarqueeOnHover/>).
  * Idle = plain ellipsis. On hover (only when the text overflows), the inner

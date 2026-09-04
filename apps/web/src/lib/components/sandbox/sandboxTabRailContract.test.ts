@@ -9,10 +9,12 @@ const read = (path: string) => readFileSync(join(here, path), "utf8");
 const sessions = "../../../routes/_repo/$owner/$repo/sessions/_components";
 const descriptors = read(`${sessions}/sandboxTabDescriptors.ts`);
 const tabBar = read(`${sessions}/SandboxTabBar.tsx`);
-const tabTrigger = read(`${sessions}/SandboxTabTrigger.tsx`);
 const cycle = read("./useCycleSandboxTabHotkey.ts");
 const palette = read("./sandboxPaletteCommands.ts");
 const simpleView = read("../../hooks/useSimpleView.ts");
+const desktopPanel = read(
+  "../../../routes/_repo/$owner/$repo/sessions/DesktopPanel.tsx",
+);
 
 /**
  * The sandbox rail is one list of tabs assembled in four places that nothing
@@ -133,16 +135,17 @@ describe("simple view hides exactly the tabs it cannot resolve", () => {
   });
 });
 
-describe("the Browser tab reuses the composer beam while the agent browses", () => {
-  test("the descriptor lights beam with the live browsing flag", () => {
-    expect(descriptors).toContain("beam: live");
+describe("the Browser pane beams while the agent browses", () => {
+  test("the colorful composer beam wraps the desktop panel", () => {
+    expect(desktopPanel).toContain("<BorderBeam");
+    expect(desktopPanel).toContain('colorVariant="colorful"');
+    expect(desktopPanel).toContain("beam-inset");
+    expect(desktopPanel).toContain("beamPane");
   });
 
-  test("the trigger draws the colorful composer beam inside the chip", () => {
-    expect(tabTrigger).toContain("<BorderBeam");
-    expect(tabTrigger).toContain('colorVariant="colorful"');
-    expect(tabTrigger).toContain("absolute inset-0");
-    expect(tabTrigger).toContain("group-data-[state=active]:bg-card");
+  test("the inset lock ring is not used on the Browser surface", () => {
+    expect(desktopPanel).toContain("beamPane ? null");
+    expect(desktopPanel).toContain("ring-[3px] ring-inset ring-primary/70");
   });
 });
 

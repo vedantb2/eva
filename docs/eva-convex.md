@@ -30,6 +30,17 @@ Read this when touching `packages/backend` / Convex schema, queries, mutations, 
 
 - `cd packages/backend && npx convex codegen --typecheck enable` (no dev server needed)
 
+## Vercel production deploys
+
+Vercel production builds (`VERCEL_ENV=production`) auto-deploy the Convex backend before building the frontend, ensuring the web deploy never goes live against an old backend.
+
+**Required Vercel Production env var:**
+- `CONVEX_DEPLOY_KEY`: deploy key for `sensible-woodpecker-357` (Eva production)
+
+Preview/staging builds skip Convex deploy — they use the existing production backend or a preview deployment.
+
+Named data migrations are NOT part of this step; run them separately via `npx convex run migrations:<name>`.
+
 ## Migrations
 
 - Field type change with existing data: `v.union(oldType, newType)` temporarily → deploy → run migration → change to only newType.

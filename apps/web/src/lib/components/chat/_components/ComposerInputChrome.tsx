@@ -9,13 +9,10 @@ import {
   toast,
   cn,
   motionSpring,
-  type ModelAccount,
-  type ModelOption,
   type PromptInputMessage,
   usePromptInputController,
 } from "@eva/ui";
 import { LayoutGroup, m } from "motion/react";
-import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
 import { ComposerSpeechButton } from "@/lib/components/chat/_components/ComposerSpeechButton";
 import {
   MAX_CHAT_ATTACHMENTS,
@@ -31,12 +28,7 @@ import {
 } from "@/lib/components/chat/MentionTextarea";
 import { IconPlayerStop } from "@tabler/icons-react";
 import { useId, type RefObject } from "react";
-import type {
-  AIModel,
-  Id,
-  ReasoningLevel,
-  StoredModelTraits,
-} from "@eva/backend";
+import type { Id } from "@eva/backend";
 import { type SlashItem } from "@/lib/components/mentions";
 import { useComposerCompact } from "@/lib/components/chat/_components/useComposerCompact";
 
@@ -70,14 +62,6 @@ export function ComposerInputChrome({
   isExecuting,
   isInputDisabled,
   hasPendingContext,
-  model,
-  setModel,
-  modelOptions,
-  accounts,
-  accountId,
-  onAccountChange,
-  displayTraits,
-  onTraitsChange,
   onPromptSubmit,
   onCancel,
   seedMentionMap,
@@ -95,19 +79,6 @@ export function ComposerInputChrome({
   isExecuting: boolean;
   isInputDisabled: boolean;
   hasPendingContext: boolean;
-  model: AIModel;
-  setModel: (model: AIModel) => void;
-  modelOptions: ReadonlyArray<ModelOption<AIModel>>;
-  accounts?: ReadonlyArray<ModelAccount>;
-  accountId?: string | null;
-  onAccountChange?: (accountId: string | null) => void;
-  displayTraits?: {
-    effortLevel: ReasoningLevel | undefined;
-    thinkingEnabled: boolean;
-    use1mContext: boolean;
-    fastMode: boolean;
-  };
-  onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;
   onPromptSubmit: (message: PromptInputMessage) => void | Promise<void>;
   onCancel: () => Promise<void>;
   seedMentionMap?: Map<string, string>;
@@ -150,16 +121,6 @@ export function ComposerInputChrome({
       transition={motionSpring}
       className="flex min-w-0 items-center gap-0.5"
     >
-      <ModelSelectWithTraits
-        value={model}
-        options={modelOptions}
-        onValueChange={setModel}
-        accounts={accounts}
-        accountId={accountId}
-        onAccountChange={onAccountChange}
-        traits={displayTraits}
-        onTraitsChange={onTraitsChange}
-      />
       <ComposerSpeechButton disabled={isInputDisabled} />
       {isExecuting ? (
         <Button

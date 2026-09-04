@@ -25,6 +25,8 @@ import { callbackState as S } from "../runtime/state.js";
 import { mediaSearchDirs } from "../runtime/sandboxMedia.js";
 import { appendClaimedTurnCompletion } from "../providers/claimedTurnLifecycle.js";
 import { buildEntityMutationArgs } from "./daemonProcess.js";
+import { persistTurnWork } from "./turnPersist.js";
+import { flushStreaming, setFinalizingState } from "./heartbeats.js";
 import { appendTurnCheckpoint } from "../runtime/turnCheckpoint.js";
 import type {
   JsonObject,
@@ -499,6 +501,22 @@ export function resolveProviderAttemptOutcome(
     };
   }
   return { success: runSucceededWithResult, error: null };
+}
+
+/** Drain the stream into steps and mark them complete before reading the log. */
+export async function drainStreamingAndCompleteSteps(): Promise<void> {
+  await flushStreaming();
+  for (const step of S.accumulatedSteps) step.status = "complete";
+}
+
+/**
+ * Final streaming reconcile then persist. True means skip the completion
+ * (lease lost or already finalizing).
+ */
+export async function reconcileStreamingAndPersist(): Promise<boolean> {
+  if (await setFinalizingState()) return true;
+  persistTurnWork();
+  return false;
 }
 
 /**

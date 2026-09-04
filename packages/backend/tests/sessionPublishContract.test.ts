@@ -707,7 +707,12 @@ function assertPersistsFirst(
   completionMarker: string,
   label: string,
 ): void {
-  const persistAt = body.indexOf("persistTurnWork();");
+  const persistAt = [
+    body.indexOf("persistTurnWork();"),
+    body.indexOf("reconcileStreamingAndPersist()"),
+  ]
+    .filter((index) => index >= 0)
+    .sort((a, b) => a - b)[0];
   const completionAt = body.indexOf(completionMarker);
   expect(persistAt, `${label} lost its durability push`).toBeGreaterThan(-1);
   expect(completionAt, `the ${label} completion moved`).toBeGreaterThan(-1);

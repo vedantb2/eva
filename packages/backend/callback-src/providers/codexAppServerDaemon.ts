@@ -21,11 +21,11 @@ import {
   buildClaudeShapedResult,
   computeCodexCostUsd,
   deliverCompletionWithMedia,
+  drainStreamingAndCompleteSteps,
+  reconcileStreamingAndPersist,
 } from "../runtime/completion.js";
 import {
-  flushStreaming,
   runPreflightHeartbeat,
-  setFinalizingState,
   startStreamingLoops,
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
@@ -34,7 +34,6 @@ import {
   resetDaemonTurnStreamingState,
 } from "../runtime/state.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
-import { persistTurnWork } from "../runtime/turnPersist.js";
 import { getCurrentTurnLease } from "../runtime/turnLease.js";
 import { DaemonSupervisor } from "../runtime/daemonSupervisor.js";
 import {
@@ -195,11 +194,9 @@ async function finalizeTurn(
   success: boolean,
   error: string | null,
 ): Promise<void> {
-  await flushStreaming();
-  for (const step of S.accumulatedSteps) step.status = "complete";
+  await drainStreamingAndCompleteSteps();
   const result = finalText || S.currentStreamedContent || S.rawOutput;
-  if (await setFinalizingState()) return;
-  persistTurnWork();
+  if (await reconcileStreamingAndPersist()) return;
   const usage = computeTurnUsageDelta(turnStartUsage, threadTotalUsage);
   const completionArgs: JsonObject = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",

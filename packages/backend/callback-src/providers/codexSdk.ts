@@ -13,7 +13,11 @@ import {
 } from "../config.js";
 import { emitParsedStreamLine } from "../parse/streamRouter.js";
 import { updateThinkingStep } from "../parse/canonical.js";
-import { appendToRawLogFile, trimBufferHead } from "../runtime/buffers.js";
+import {
+  appendToRawLogFile,
+  recordSdkAttemptFailure,
+  trimBufferHead,
+} from "../runtime/buffers.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import type { ProviderAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
@@ -188,10 +192,7 @@ export async function runCodexSdkAttempt(
   }
 
   if (attemptErrorMessage) {
-    appendToRawLogFile("[sdk-error] " + attemptErrorMessage + "\n");
-    S.stderrOutput = trimBufferHead(
-      S.stderrOutput + attemptErrorMessage + "\n",
-    );
+    recordSdkAttemptFailure(attemptErrorMessage);
   }
 
   const code =

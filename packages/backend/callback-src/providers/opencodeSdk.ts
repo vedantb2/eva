@@ -10,7 +10,12 @@ import {
 import { evaMcpServers } from "../evaMcp.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { emitParsedStreamLine } from "../parse/streamRouter.js";
-import { appendToRawLogFile, trimBufferHead } from "../runtime/buffers.js";
+import {
+  appendToRawLogFile,
+  recordSdkAttemptFailure,
+  recordSdkRetry,
+  trimBufferHead,
+} from "../runtime/buffers.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import {
   syncOpencodeStateToPersist,
@@ -393,9 +398,7 @@ export async function runOpencodeSdkAttempt(
           sessionMode.sessionId +
           " unknown to the server — starting a fresh session",
       );
-      appendToRawLogFile(
-        "[sdk-retry] resume session not found: " + sessionMode.sessionId + "\n",
-      );
+      recordSdkRetry("resume session not found: " + sessionMode.sessionId);
       sessionId = await createFreshSession();
     }
   } else {
@@ -629,14 +632,9 @@ export async function runOpencodeSdkAttempt(
     const messageText = error instanceof Error ? error.message : String(error);
     attemptErrorMessage = messageText;
     log("runOpencodeSdkAttempt: turn failed — " + messageText);
-    appendToRawLogFile("[sdk-error] " + messageText + "\n");
-    S.stderrOutput = trimBufferHead(
-      S.stderrOutput +
-        messageText +
-        "\n" +
-        readOpencodeServerLogTail(1_000) +
-        "\n",
-    );
+    recordSdkAttemptFailure(messageText, {
+      extraStderr: readOpencodeServerLogTail(1_000),
+    });
   } finally {
     clearInterval(healthTimer);
     markTerminal();

@@ -300,7 +300,7 @@ describe("the cursor daemon's per-turn ordering", () => {
       daemon,
       "async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {",
     );
-    const flushAt = finalize.indexOf("await flushStreaming()");
+    const flushAt = finalize.indexOf("await drainStreamingAndCompleteSteps()");
     const serializeAt = finalize.indexOf("serializeSteps(S.accumulatedSteps)");
     const deliverAt = finalize.indexOf("deliverCompletionWithMedia(");
     expect(flushAt, "the pre-completion drain is gone").toBeGreaterThan(-1);

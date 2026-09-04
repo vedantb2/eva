@@ -21,14 +21,14 @@ import { serializeSteps } from "../parse/stepBudget.js";
 import {
   appendDiagnosticTail,
   deliverCompletionWithMedia,
+  drainStreamingAndCompleteSteps,
   extractResultEvent,
   postClaimedTurnFailureCompletion,
+  reconcileStreamingAndPersist,
   resolveProviderAttemptOutcome,
 } from "../runtime/completion.js";
 import {
-  flushStreaming,
   runPreflightHeartbeat,
-  setFinalizingState,
   startStreamingLoops,
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
@@ -303,9 +303,8 @@ async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {
   // Only flushStreaming parses buffered lines into accumulatedSteps, so the
   // drain has to happen before the activity log is read and before the
   // completion mutation persists it.
-  await flushStreaming();
+  await drainStreamingAndCompleteSteps();
   const resultEvent = extractResultEvent(attempt.output);
-  for (const step of S.accumulatedSteps) step.status = "complete";
   const { success, error } = buildTurnCompletion(attempt);
   const completionArgs: Record<string, string | boolean | null> = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
@@ -326,10 +325,7 @@ async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {
   // finalizes the assistant message and the server may dequeue the next turn
   // straight after, so writing streaming state past that point resurrects this
   // turn's text into the next turn's placeholder.
-  if (await setFinalizingState()) return;
-  // Durability BEFORE completion: a VM death after this point must not erase
-  // the turn's work.
-  persistTurnWork();
+  if (await reconcileStreamingAndPersist()) return;
   await deliverCompletionWithMedia(completionArgs);
   syncCursorStateToPersist();
   log("cursor daemon: turn finalized success=" + success);
@@ -536,12 +532,8 @@ async function executeClaimedTurn(turn: ClaimedTurn): Promise<void> {
     log("cursor daemon: turn failed — " + message);
     if (cancelInFlight) return;
     try {
-      await flushStreaming();
-      for (const step of S.accumulatedSteps) step.status = "complete";
-      if (await setFinalizingState()) return;
-      // Durability BEFORE completion, as finalizeTurn does it — the turn failed
-      // but anything it committed is still the user's work.
-      persistTurnWork();
+      await drainStreamingAndCompleteSteps();
+      if (await reconcileStreamingAndPersist()) return;
       const completionArgs: Record<string, JsonValue> = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,

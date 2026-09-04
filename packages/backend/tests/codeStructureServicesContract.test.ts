@@ -433,6 +433,49 @@ test("Cursor refresh uses decideCallbackRefresh", () => {
   );
 });
 
+test("turn finalize shares drain and persist helpers", () => {
+  const service = read("callback-src/runtime/completion.ts");
+  expect(service).toContain("export async function drainStreamingAndCompleteSteps(");
+  expect(service).toContain("export async function reconcileStreamingAndPersist(");
+  expect(service).toContain("await flushStreaming()");
+  expect(service).toContain("step.status = \"complete\"");
+  expect(service).toContain("if (await setFinalizingState()) return true");
+  expect(service).toContain("persistTurnWork()");
+  for (const path of [
+    "callback-src/providers/claudeSdkDaemon.ts",
+    "callback-src/providers/cursorSdkDaemon.ts",
+    "callback-src/providers/codexAppServerDaemon.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should drain via the shared helper`).toContain(
+      "drainStreamingAndCompleteSteps()",
+    );
+    expect(source, `${path} should persist via the shared helper`).toContain(
+      "reconcileStreamingAndPersist()",
+    );
+  }
+});
+
+test("SDK attempt failures share recordSdkAttemptFailure", () => {
+  const buffers = read("callback-src/runtime/buffers.ts");
+  expect(buffers).toContain("export function recordSdkAttemptFailure(");
+  expect(buffers).toContain("export function recordSdkRetry(");
+  for (const path of [
+    "callback-src/providers/claudeSdk.ts",
+    "callback-src/providers/codexSdk.ts",
+    "callback-src/providers/cursorSdk.ts",
+    "callback-src/providers/opencodeSdk.ts",
+  ] as const) {
+    const source = read(path);
+    expect(source, `${path} should record failures via the helper`).toContain(
+      "recordSdkAttemptFailure(",
+    );
+    expect(source, `${path} re-inlined the sdk-error log`).not.toContain(
+      '"[sdk-error]"',
+    );
+  }
+});
+
 test("deployment status reads share fetchLatestDeploymentStatus", () => {
   const service = read("convex/_github/deploymentSnapshot.ts");
   expect(service).toContain("export async function fetchLatestDeploymentStatus(");

@@ -28,7 +28,12 @@ import { evaMcpServers } from "../evaMcp.js";
 import { buildClaudeStartupStep } from "../session/claudeSession.js";
 import { emitParsedStreamLine } from "../parse/streamRouter.js";
 import { updateThinkingStep } from "../parse/canonical.js";
-import { appendToRawLogFile, trimBufferHead } from "../runtime/buffers.js";
+import {
+  appendToRawLogFile,
+  recordSdkAttemptFailure,
+  recordSdkRetry,
+  trimBufferHead,
+} from "../runtime/buffers.js";
 import { buildCanUseTool } from "../runtime/pendingQuestion.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import {
@@ -578,7 +583,7 @@ export async function runClaudeSdkAttempt(
         log(
           "runClaudeSdkAttempt: resume target missing — retrying as a new session with the same id",
         );
-        appendToRawLogFile("[sdk-retry] " + messageText + "\n");
+        recordSdkRetry(messageText);
         sawResult = false;
         resultIsError = false;
         effectiveMode = { mode: "session", sessionId: effectiveMode.sessionId };
@@ -595,8 +600,7 @@ export async function runClaudeSdkAttempt(
     const messageText = error instanceof Error ? error.message : String(error);
     queryErrorMessage = messageText;
     log("runClaudeSdkAttempt: query failed — " + messageText);
-    appendToRawLogFile("[sdk-error] " + messageText + "\n");
-    S.stderrOutput = trimBufferHead(S.stderrOutput + messageText + "\n");
+    recordSdkAttemptFailure(messageText);
   } finally {
     clearInterval(healthTimer);
   }

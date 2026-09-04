@@ -26,14 +26,15 @@ import {
 } from "../http/convexClient.js";
 import {
   deliverCompletionWithMedia,
+  drainStreamingAndCompleteSteps,
   extractResultEvent,
   postClaimedTurnFailureCompletion,
+  reconcileStreamingAndPersist,
   uploadAndAttachSandboxMedia,
 } from "../runtime/completion.js";
 import {
   flushStreaming,
   runPreflightHeartbeat,
-  setFinalizingState,
   startStreamingLoops,
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
@@ -432,9 +433,8 @@ async function finalizeTurn(
   // does that, and it runs on a 150ms interval, so without this synchronous
   // drain the activityLog is read (and then resetTurnState-cleared) before the
   // loop has parsed this turn's tool steps — yielding an empty "[]" activityLog.
-  await flushStreaming();
+  await drainStreamingAndCompleteSteps();
   const resultEvent = extractResultEvent(output);
-  for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(S.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
   const completionArgs: Record<string, JsonValue> = {
@@ -461,11 +461,7 @@ async function finalizeTurn(
   // as its response until the real reply arrived (stale-reply bug).
   // setFinalizingState (not plain flushStreaming, which would early-return on
   // the already-drained buffer) pushes the now-complete steps and final text.
-  if (await setFinalizingState()) return;
-  // Durability BEFORE completion: commit + push the turn's work so a VM death
-  // after this point cannot erase it (a hard death snapshots nothing and the
-  // next resume rolls the filesystem back — see turnPersist.ts).
-  persistTurnWork();
+  if (await reconcileStreamingAndPersist()) return;
   // Completion first, then media: attachMedia patches the assistant message
   // that was just written.
   const completionSentAt = Date.now();

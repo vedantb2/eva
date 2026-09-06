@@ -394,17 +394,28 @@ export function sizedPreviewViewport(
 
 const DEFAULT_CONTAIN_SIZE = { width: 1280, height: 800 };
 
-/** Locked guest box for the preview-bar contain toggle (fill + letterbox). */
+const containSizeSchema = z.object({
+  width: z.number().finite(),
+  height: z.number().finite(),
+});
+
+/**
+ * Locked guest box for the preview-bar contain toggle (fill + letterbox).
+ *
+ * This reads sessionStorage, so anything can be on the other end of it — a
+ * value an older build wrote in another shape, or a hand-edited entry. Coercing
+ * with `Number()` turned every one of those into NaN, which the clamp floors to
+ * the 240px minimum: the preview letterboxed to a 240×240 stamp and stayed that
+ * way across reloads. Reject the whole value instead and fall back.
+ */
 export function parsePreviewContainSize(raw: string): {
   width: number;
   height: number;
 } {
   try {
-    const parsed = JSON.parse(raw) as { width?: unknown; height?: unknown };
-    const size = snapshotFillViewport({
-      width: Number(parsed.width),
-      height: Number(parsed.height),
-    });
+    const parsed = containSizeSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return { ...DEFAULT_CONTAIN_SIZE };
+    const size = snapshotFillViewport(parsed.data);
     return { width: size.width, height: size.height };
   } catch {
     return { ...DEFAULT_CONTAIN_SIZE };

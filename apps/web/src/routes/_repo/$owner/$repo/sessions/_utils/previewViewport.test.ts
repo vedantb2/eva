@@ -111,4 +111,32 @@ describe("preview viewport", () => {
       height: 800,
     });
   });
+
+  /**
+   * The contain size is read back out of sessionStorage, so a stale entry from
+   * an older build, or one edited by hand, is well-formed JSON of the wrong
+   * shape. Coercion made each of these NaN, and the clamp floors NaN to the
+   * 240px minimum — the preview letterboxed to a 240×240 stamp and, because the
+   * bad value stays on disk, kept doing it on every reload. Well-formed JSON is
+   * the case that survives `JSON.parse`, so the try/catch alone never caught it.
+   */
+  test.each([
+    ["strings instead of numbers", '{"width":"1280","height":"800"}'],
+    ["a missing height", '{"width":1280}'],
+    ["an unrelated shape", '{"mode":"fill"}'],
+    ["a bare number", "5"],
+    ["null", "null"],
+    ["an array", "[1280,800]"],
+    ["a non-finite width", '{"width":1e999,"height":800}'],
+  ])("falls back to the desktop frame for %s", (_label, raw) => {
+    expect(parsePreviewContainSize(raw)).toEqual({ width: 1280, height: 800 });
+  });
+
+  test("still clamps a real but out-of-range stored size", () => {
+    // Numbers we can trust are clamped, not discarded — only the shape is fatal.
+    expect(parsePreviewContainSize('{"width":10,"height":10}')).toEqual({
+      width: 240,
+      height: 240,
+    });
+  });
 });
